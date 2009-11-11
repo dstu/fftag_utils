@@ -1,0 +1,7 @@
+These are some utilities which should be useful for munging and
+evaluating form-function tags. A support library is in lib. Its
+contents should be added to your PERL5LIB (or other appropriate
+environment variable).
+
+All the utility scripts accept -h as a parameter to print usage
+information.
