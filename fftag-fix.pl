@@ -12,6 +12,29 @@ use File::Basename;
 
 my $name = basename $0;
 
+# Numbers taken from WSJ sections 00-22
+my %FFTAG_ORDER = 
+    ( SBJ => 78189,
+      TMP => 23059,
+      PRD => 16656,
+      LOC => 15816,
+      CLR => 15621,
+      ADV => 8089,
+      DIR => 5716,
+      MNR => 4262,
+      NOM => 4209,
+      TPC => 4056,
+      PRP => 3521,
+      LGS => 2925,
+      EXT => 2226,
+      TTL => 489,
+      HLN => 484,
+      DTV => 471,
+      PUT => 247,
+      CLF => 61,
+      BNF => 52,
+      VOC => 25 );
+
 my $usage = <<"EOF";
 $name: mutate form-function tag annotations in WSJ-style files
 
@@ -26,24 +49,37 @@ If infile not specified, reads from standard in. Writes to
 standard out.
 
 Options:
- --joiner, -j   specify string to join annotations with
-                (for output; default "-")
- --keep, -k     specify only tags to keep (-k tag1 tag2 ...)
- --strip, -s    strip tags
- --replace, -r  replace tags with generic tag SBJ
+ --joiner, -j    specify string to join annotations with
+                 (for output; default "-")
+ --keep, -k      specify only tags to keep (-k tag1 tag2 ...)
+ --strip, -s     strip tags
+ --replace, -r   replace tags with generic tag SBJ
+ --one-tag, -o   make all occurrences of multiple tags just
+                 one tag, choosing the most frequent tag in
+                 the set
+
+Special option:
+ --exec, -e      code block to run for each tree, with \$_
+                 holding the root of the tree. If this is
+                 specified, nothing is printed to standard
+                 out. (Write a print statement yourself.)
 
 EOF
 
 my $joiner = "-";
+my $exec;
+my $onetag;
 my $strip;
 my $replace;
 my @keeptags;
 
-GetOptions( "joiner"  => \$joiner,
-            "strip"   => \$strip,
-            "replace" => \$replace,
-            "keep=s@" => \@keeptags,
-            "help"    => sub { print $usage; exit 0 },)
+GetOptions( "joiner=s" => \$joiner,
+            "strip"    => \$strip,
+            "replace"  => \$replace,
+            "keep=s@"  => \@keeptags,
+            "one-tag"  => \$onetag,
+            "exec=s"   => \$exec,
+            "help"     => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
 @keeptags = split(/,/, join(',', @keeptags));
@@ -99,7 +135,29 @@ while (<$in_fh>) {
                           }
                       } );
     }
-    print $head->stringify($joiner), "\n";
+
+    if ($onetag) {
+        $head->visit( sub {
+                          if (ref $_[0] && $_[0]->data && $_[0]->data->tags) {
+                              my @t = sort { $FFTAG_ORDER{$b} <=> $FFTAG_ORDER{$a} } $_[0]->data->tags;
+                              $_[0]->data->set_tags($t[0]);
+                          }
+                      } );
+    }
+
+    if ($exec) {
+        undef $@;
+        eval {
+            $_ = $head;
+            eval "$exec";
+            die "$@"
+                if $@;
+        };
+        die "$@"
+            if $@;
+    } else {
+        print $head->stringify($joiner), "\n";
+    }
 }
 
 close $in_fh

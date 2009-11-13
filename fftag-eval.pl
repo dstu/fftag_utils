@@ -152,6 +152,15 @@ sub compare_spans {
 sub compute_stats {
     my %scores = %{$_[0]};
 
+    $scores{TOTAL} = { correct      => 0,
+                       test_guesses => 0,
+                       gold         => 0, };
+    for (values %scores) {
+        $scores{TOTAL}->{correct} += $_->{correct};
+        $scores{TOTAL}->{test_guesses} += $_->{test_guesses};
+        $scores{TOTAL}->{gold} += $_->{gold};
+    }
+
     for (fftag_groups) {
         my @tags = fftag_group_members($_);
         my $v = { correct       => sum(map { $scores{$_}->{correct} } @tags),
@@ -229,7 +238,7 @@ unless (eof($gold_fh) && eof($test_fh)) {
 %scores = compute_stats(\%scores);
 
 print "Group or tag\tPrecision\tRecall\tFMeasure\n";
-for my $group (fftag_groups) {
+for my $group (fftag_groups, "TOTAL") {
     printf STDOUT "$group\t%.2f\t%.2f\t%.2f\n",
         $scores{$group}->{precision},
         $scores{$group}->{recall},
