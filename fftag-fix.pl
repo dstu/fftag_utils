@@ -57,6 +57,8 @@ Options:
  --one-tag, -o   make all occurrences of multiple tags just
                  one tag, choosing the most frequent tag in
                  the set
+ --unary-test    replaces ff tags with unary chains
+                 (this is for a baseline test)
 
 Special option:
  --exec, -e      code block to run for each tree, with \$_
@@ -69,17 +71,19 @@ EOF
 my $joiner = "-";
 my $exec;
 my $onetag;
+my $unary_test;
 my $strip;
 my $replace;
 my @keeptags;
 
-GetOptions( "joiner=s" => \$joiner,
-            "strip"    => \$strip,
-            "replace"  => \$replace,
-            "keep=s@"  => \@keeptags,
-            "one-tag"  => \$onetag,
-            "exec=s"   => \$exec,
-            "help"     => sub { print $usage; exit 0 },)
+GetOptions( "joiner=s"   => \$joiner,
+            "strip"      => \$strip,
+            "replace"    => \$replace,
+            "keep=s@"    => \@keeptags,
+            "one-tag"    => \$onetag,
+            "exec=s"     => \$exec,
+            "unary-test" => \$unary_test,
+            "help"       => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
 @keeptags = split(/,/, join(',', @keeptags));
@@ -94,6 +98,10 @@ if ($strip && $replace) {
 
 if ($replace && @keeptags) {
     die "Can't specify --replace and --keep together!\n";
+}
+
+if ($unary_test && (@keeptags || $strip || $replace)) {
+    die "Can't specify --unary-test with --keep, --strip, or --replace!\n";
 }
 
 my $in_fn = shift;
@@ -134,6 +142,8 @@ while (<$in_fh>) {
                               $_[0]->data->set_tags(@t);
                           }
                       } );
+    } elsif ($unary_test) {
+        $head = make_unary($head);
     }
 
     if ($onetag) {
@@ -162,5 +172,20 @@ while (<$in_fh>) {
 
 close $in_fh
     if $in_fn;
+
+sub make_unary {
+    my $tree = shift;
+    if (ref $tree && ref $tree->data) {
+        $tree->children(map { make_unary($_) } $tree->children);
+        if ($tree->data->tags) {
+            my $new_tree = TreebankUtil::Tree->new;
+            $tree->data->clear_tags;
+            $new_tree->children($tree);
+            $new_tree->data(TreebankUtil::Node->new({ TagString => $tree->data->head }));
+            return $new_tree;
+        }
+    }
+    return $tree;
+}
 
 __END__
