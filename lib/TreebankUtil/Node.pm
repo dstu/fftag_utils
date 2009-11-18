@@ -22,6 +22,10 @@ Argument is a hashref. Keys are:
 
 =over
 
+=item Nonterminals: nonterminal node strings. Default standard Penn treebank nonterminals.
+
+=item FFTags: fftag strings. Default standard Penn treebank fftags.
+
 =item FFSeparator: fftag separator string. May be a regex. (Run through quotemeta if you have to!) Default "-".
 
 =item TagString: a string that the node contents should be extracted from. (Something like NP-SBJ or VBZ or whatever.)
@@ -40,10 +44,18 @@ Argument is a hashref. Keys are:
             if ($args{FFSeparator}) {
                 $separator = $args{FFSeparator};
             }
+            my @nonterminals = nonterminals;
+            if ($args{Nonterminals}) {
+                @nonterminals = @{$args{Nonterminals}};
+            }
+            my @fftags = fftags;
+            if ($args{FFTags}) {
+                @fftags = @{$args{FFTags}};
+            }
             if ($args{TagString}) {
                 my $TAG_REGEX
-                    = '^(' . join('|', map { quotemeta } nonterminals()) . ')'
-                        . "((?:(?:$separator)(?:" . join('|', map { quotemeta } fftags()) . '))*)(?:=\d+)?$';
+                    = '^(' . join('|', map { quotemeta } @nonterminals) . ')'
+                        . "((?:(?:$separator)(?:" . join('|', map { quotemeta } @fftags) . '))*)(?:=\d+)?$';
                 my $s = $args{TagString};
                 if ($s =~ m{$TAG_REGEX}x) {
                     $t->set_head($1);
@@ -52,7 +64,7 @@ Argument is a hashref. Keys are:
                         $t->set_tags(@c[1..$#c]);
                     }
                 } else {
-                    cluck("Can't extract nonterminal and tags; ignoring line \"$s\"");
+                    cluck("Can't extract nonterminal and tags; ignoring tag \"$s\"");
                 }
             }
         }
@@ -90,13 +102,15 @@ Argument is a hashref. Keys are:
 
     sub add_tag {
         my TreebankUtil::Node $t = shift;
-        $t->{_fftags}->{@_} = map { $_ => 1 } @_;
+        $t->{_fftags}->{$_} = 1
+            foreach @_;
         return $t;
     }
 
     sub del_tag {
         my TreebankUtil::Node $t = shift;
-        delete $t->{_fftags}->{@_};
+        delete $t->{_fftags}->{$_}
+            foreach @_;
         return $t;
     }
 

@@ -91,6 +91,7 @@ its children.
         if ($args{_start}) {
             $i = $args{_start};
         }
+        my $nonterminals = $args{Nonterminals};
 
         my $expect_nonterminal = 1;
         my $head = TreebankUtil::Tree->new;
@@ -102,6 +103,7 @@ its children.
                 my $child;
                 ($child, $i) = tree({ Line        => $line,
                                       FFSeparator => $ff_separator,
+                                      Nonterminals => $nonterminals,
                                       _start      => $i, });
                 $head->append_child($child);
             } elsif (')' eq $ss) {
@@ -118,6 +120,7 @@ its children.
 
                 if ($expect_nonterminal) {
                     $head->data(TreebankUtil::Node->new({ TagString   => substr($line, $i, $l),
+                                                          Nonterminals => $nonterminals,
                                                           FFSeparator => $ff_separator, }));
                     $expect_nonterminal = 0;
                 } else {

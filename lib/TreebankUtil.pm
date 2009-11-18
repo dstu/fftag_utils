@@ -5,7 +5,7 @@
     use Exporter qw/import/;
 
     our @EXPORT_OK = qw(nonterminals nonterminal_regex
-                        fftags fftag_regex
+                        fftags is_fftag fftag_regex
                         fftag_groups fftag_group fftag_group_members);
 
     my @NONTERMINALS = qw( TAGS
@@ -161,6 +161,22 @@ Returns the list of form-function tags used in the Penn treebank.
 
 =cut
     sub fftags { return @FFTAGS; }
+
+=pod
+
+=head3 is_fftag
+
+Returns true iff argument is an fftag. (Case-sensitive.)
+
+=cut
+    sub is_fftag {
+        for (fftags) {
+            if ($_ eq $_[0]) {
+                return 1;
+            }
+        }
+        return undef;
+    }
 
 =pod
 

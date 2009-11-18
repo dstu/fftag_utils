@@ -3,7 +3,9 @@
 use strict;
 use warnings;
 
-use TreebankUtil qw/fftags/;
+use Carp;
+
+use TreebankUtil qw/nonterminals fftags is_fftag/;
 use TreebankUtil::Node;
 use TreebankUtil::Tree qw/tree/;
 
@@ -11,6 +13,31 @@ use Getopt::Long;
 use File::Basename;
 
 my $name = basename $0;
+
+my @mod_fftags = map { "TAG_$_" } fftags;
+
+# Numbers taken from WSJ sections 00-22
+my %FFTAG_ORDER =
+    ( SBJ => 78189,
+      TMP => 23059,
+      PRD => 16656,
+      LOC => 15816,
+      CLR => 15621,
+      ADV => 8089,
+      DIR => 5716,
+      MNR => 4262,
+      NOM => 4209,
+      TPC => 4056,
+      PRP => 3521,
+      LGS => 2925,
+      EXT => 2226,
+      TTL => 489,
+      HLN => 484,
+      DTV => 471,
+      PUT => 247,
+      CLF => 61,
+      BNF => 52,
+      VOC => 25 );
 
 my $usage = <<"EOF";
 $name: transform form-function tag annotations in WSJ-style files
@@ -20,9 +47,10 @@ Usage: $name [options] [infile]
 Change trees with form-function tag annotations. The following
 schema are available:
 
-Scheme 1: ("NP-SBJ" ...) => ("NP" "sbj_1" ...)
+Scheme 1: ("NP-SBJ" ...) => ("NP-SBJ" ...)
 Scheme 2: ("NP-SBJ" ...) => ("NP" ("SBJ" "sbj_1") ...)
 Scheme 3: ("NP-SBJ" ...) => ("NP" ("TAGS" (SBJ "sbj_1")) ...)
+Scheme 4: ("NP-SBJ" ...) => ("SBJ" ("NP" ...))
 
 If infile not specified, reads from standard in. Writes to
 standard out.
@@ -30,108 +58,181 @@ standard out.
 Options:
  --scheme, -s: select scheme number from above
  --clear, --no-clear: clear tags after scheme is applied (default don't)
- --positive-only, -p: only make nodes for positive tag occurrences
+ --output-join: string to join fftags with in output (default '-')
 
 EOF
 
-my ($scheme, $clear_tags, $positive_only);
+my ($scheme, $clear_tags);
+my $out_joiner = '-';
+
+sub transform4 {
+    my $tree = shift;
+    if (ref $tree && ref $tree->data) {
+        $tree->children(map { transform4($_) } $tree->children);
+        if ($tree->data->tags) {
+            my @children = $tree->children;
+            my @tags = ($tree->data,
+                        map { my $n = TreebankUtil::Node->new;
+                              $n->set_head($_);
+                              $n } sort { $FFTAG_ORDER{$a} <=> $FFTAG_ORDER{$b} } $tree->data->tags);
+            $tree->data->clear_tags;
+            my $new_tree;
+            foreach (@tags) {
+                $new_tree = TreebankUtil::Tree->new;
+                $new_tree->data($_);
+                $new_tree->children(@children);
+                @children = ($new_tree);
+            }
+            return $new_tree;
+        }
+    }
+    return $tree;
+}
+
+sub matches_one {
+    my $w = shift;
+    for (@_) {
+        if ($w eq $_) {
+            return 1;
+        }
+    }
+    return;
+}
+
+sub transform4_undo {
+    my $tree = shift;
+    if (ref $tree && ref $tree->data) {
+        if (is_fftag($tree->data->head) && !($tree->data->head eq 'PRP')) {
+            if (1 != scalar($tree->children)) {
+                croak("Bad tree: " . $tree->data->head . " expected 1 child, got " . scalar($tree->children) . ": " . $tree->stringify('-'));
+            }
+            my $child = ($tree->children)[0];
+            $child->data->add_tag($tree->data->head, $tree->data->tags);
+            return $child;
+        } else {
+            my @children;
+            foreach my $child ($tree->children) {
+                if (ref $child && is_fftag($child->data->head) && !($child->data->head eq 'PRP')) {
+#               if (ref $child && matches_one($child->data->head, @mod_fftags)) {
+                    if (1 != scalar($child->children)) {
+                        croak("Bad tree: " . $child->data->head . " expected 1 child, got " . scalar($child->children) . ": " . $child->stringify('-'));
+                    }
+                    foreach my $grandchild ($child->children) {
+                        $grandchild->data->add_tag($child->data->head, $child->data->tags)
+                            if ref $grandchild;
+                        push @children, $grandchild;
+                    }
+                } else {
+                    push @children, $child;
+                }
+            }
+            $tree->children(@children);
+        }
+    }
+    return $tree;
+}
 
 my %SCHEMES =
-    ( 1 => sub {
-          # (NP-SBJ ...) => (NP sbj_1 ...)
-          my ($node, $data, $tags) = @_;
-          return $node
-              unless ref $node;
-          while (my ($k, $v) = each %$tags) {
-              $node->prepend_child(lc($k) . "_$v");
-          }
-
-          return $node;
-      },
+    ( 1 => sub { return shift; },
       2 => sub {
           # (NP-SBJ ...) => (NP (SBJ sbj_1) ...)
-          my ($node, $data, $tags) = @_;
-          return $node
-              unless ref $node;
-          my ($new_child, $new_node);
-          while (my ($k, $v) = each %$tags) {
-              $new_child = TreebankUtil::Tree->new;
-              $new_node = TreebankUtil::Node->new;
-              $new_node->set_head($k);
-              $new_child->data($new_node);
-              $new_child->append_child(lc($k) . "_$v");
-
-              $node->prepend_child($new_child);
+          my $tree = shift;
+          return $tree
+              unless ref $tree && $tree->data->tags;
+          for ($tree->data->tags) {
+              my $new_child = TreebankUtil::Tree->new;
+              $new_child->data(TreebankUtil::Node->new);
+              $new_child->data->set_head($_);
+              $new_child->children("$_" . "_1");
+              $tree->prepend_child($new_child);
           }
-
-          return $node;
+          $tree->data->clear_tags;
+          return $tree;
       },
       3 => sub {
           # (NP-SBJ ...) => (NP (TAGS sbj_1) ...)
-          my ($node, $data, $tags) = @_;
-          return $node
-              unless ref $node;
+          my $tree = shift;
+          return $tree
+              unless ref $tree && $tree->data->tags;
+
           my $tag_child = TreebankUtil::Tree->new;
-          my $new_node = TreebankUtil::Node->new;
-          $new_node->set_head("TAGS");
-          $tag_child->data($new_node);
-          my $new_child;
-          while (my ($k, $v) = each %$tags) {
-              $new_node = TreebankUtil::Node->new;
-              $new_node->set_head($k);
-
-              $new_child = TreebankUtil::Tree->new;
-              $new_child->data($new_node);
-              $new_child->append_child(lc($k) . "_$v");
-
+          $tag_child->data(TreebankUtil::Node->new);
+          $tag_child->data->set_head("TAGS");
+          for ($tree->data->tags) {
+              my $new_child = TreebankUtil::Tree->new;
+              $new_child->data(TreebankUtil::Node->new);
+              $new_child->data->set_head($_);
+              $new_child->append_child($_ . "_1");
               $tag_child->append_child($new_child);
           }
-          $node->prepend_child($tag_child)
-              unless $tag_child->is_leaf;
+          $tree->data->clear_tags;
+          $tree->prepend_child($tag_child);
 
-          return $node;
-      }, );
+          return $tree;
+      },
+      4 => \&transform4,
+      "4_undo" => \&transform4_undo, );
 
-GetOptions( "scheme=i" => sub { $scheme = $SCHEMES{$_[1]} },
+GetOptions( "scheme=s" => \$scheme,
             "clear!"   => \$clear_tags,
-            "positive-only" => \$positive_only,
+            "output-join=s" => \$out_joiner,
             "help"     => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
-unless ($scheme) {
+unless ($SCHEMES{$scheme}) {
     die "Invalid scheme. Must choose one of: (" . join(' ', sort keys(%SCHEMES)) . ")\n";
 }
 
 sub transform_tree {
-    my $root = $_[0];
-    my @to_transform = ($root);
-    my $transformer = $_[1];
-    my ($tree, $data, $tags);
-    my %temp_tags;
-    while (@to_transform) {
-        $tree = shift @to_transform;
-        next
-            unless ref $tree;
-        push @to_transform, $tree->children;
-        $data = $tree->data;
-        if ($positive_only) {
-            $tags = {map { $_ => 1 } $data->tags};
-        } else {
-            %temp_tags = map { $_ => 1 } $data->tags;
-            $tags = {};
-            for (fftags) {
-                $tags->{$_} = $temp_tags{$_} ? 1 : 0;
-            }
-        }
-        $tree = $transformer->($tree,
-                               $data,
-                               $tags);
-        $data->clear_tags
-            if $clear_tags;
+    my $tree = shift;
+    my $transformer = shift;
+    if (ref $tree && ref $tree->data) {
+        my $new_tree = TreebankUtil::Tree->new;
+        $new_tree->children(map { $transformer->($_) } map { transform_tree($_, $transformer) } $tree->children);
+        $new_tree->data(TreebankUtil::Node->new);
+        $new_tree->data->set_head($tree->data->head);
+        $new_tree->data->set_tags($tree->data->tags);
+        $new_tree = $transformer->($new_tree);
+        return $new_tree;
+    } else {
+        return $tree;
     }
-
-    return $root;
 }
+
+# sub transform_tree {
+#     my $root = $_[0];
+#     my @to_transform = ($root);
+#     my $transformer = $_[1];
+#     my ($tree, $data, $tags);
+#     my %temp_tags;
+#     while (@to_transform) {
+#         $tree = shift @to_transform;
+#         next
+#             unless ref $tree;
+#         # print "going to transform " . $tree->stringify('-'), "\n";
+#         push @to_transform, $tree->children
+#             unless $scheme eq '4' || $scheme eq '4_undo';
+#         $data = $tree->data;
+#         if ($positive_only) {
+#             $tags = {map { $_ => 1 } $data->tags};
+#         } else {
+#             %temp_tags = map { $_ => 1 } $data->tags;
+#             $tags = {};
+#             for (fftags) {
+#                 $tags->{$_} = $temp_tags{$_} ? 1 : 0;
+#             }
+#         }
+#         $tree = $transformer->($tree,
+#                                $data,
+#                                $tags);
+#         $data->clear_tags
+#             if $clear_tags;
+#         push @to_transform, $tree->children
+#             if $scheme eq '4' || $scheme eq '4_undo';
+#     }
+
+#     return $root;
+# }
 
 my $in_fn = shift;
 my $in_fh;
@@ -145,10 +246,17 @@ if ($in_fn) {
 while (<$in_fh>) {
     chomp;
 
-    my $tree = tree({ Line => $_,
-                      FFSeparator => 'xx|-', });
-    $tree = transform_tree($tree, $scheme);
-    print $tree->stringify('xx') . "\n";
+    my $tree;
+    if ($scheme eq '4_undo') {
+        $tree = tree({ Nonterminals => [fftags, nonterminals],
+                       Line => $_,
+                       FFSeparator => 'xx|-', });
+    } else {
+        $tree = tree({ Line => $_,
+                       FFSeparator => 'xx|-', });
+    }
+    $tree = transform_tree($tree, $SCHEMES{$scheme});
+    print $tree->stringify($out_joiner) . "\n";
 }
 
 close $in_fh
