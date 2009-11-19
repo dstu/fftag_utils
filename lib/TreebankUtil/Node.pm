@@ -53,23 +53,30 @@ Argument is a hashref. Keys are:
                 @fftags = @{$args{FFTags}};
             }
             if ($args{TagString}) {
-                my $TAG_REGEX
-                    = '^(' . join('|', map { quotemeta } @nonterminals) . ')'
-                        . "((?:(?:$separator)(?:" . join('|', map { quotemeta } @fftags) . '))*)(?:=\d+)?$';
-                my $s = $args{TagString};
-                if ($s =~ m{$TAG_REGEX}x) {
-                    $t->set_head($1);
-                    if ($2) {
-                        my @c = split(m/$separator/, $2);
-                        $t->set_tags(@c[1..$#c]);
-                    }
-                } else {
-                    cluck("Can't extract nonterminal and tags; ignoring tag \"$s\"");
-                }
+                $t->_extract_data($args{TagString}, \@nonterminals, \@fftags, $separator)
+                    or cluck("Can't extract nonterminal and tags; ignoring tag \"$args{TagString}\"");
             }
         }
 
         return $t;
+    }
+
+    sub _extract_data {
+        my TreebankUtil::Node $t = shift;
+        my ($s, $nonterminals, $fftags, $separator) = @_;
+        my $TAG_REGEX
+            = '^(' . join('|', map { quotemeta } @$nonterminals) . ')'
+                . "((?:(?:$separator)(?:" . join('|', map { quotemeta } @$fftags) . '))*)(?:=\d+)?$';
+        if ($s =~ m{$TAG_REGEX}x) {
+            $t->set_head($1);
+            if ($2) {
+                my @c = split(m/$separator/, $2);
+                $t->set_tags(@c[1..$#c]);
+            }
+            return 1;
+        } else {
+            return;
+        }
     }
 
     sub set_head {
