@@ -9,6 +9,7 @@
                         tag_or_label_count);
 
     my @NONTERMINALS = qw( TAGS
+                           XXX
                            TOP
                            ROOT
                            S
