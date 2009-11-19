@@ -44,17 +44,23 @@ Argument is a hashref. Keys are:
             if ($args{FFSeparator}) {
                 $separator = $args{FFSeparator};
             }
-            my @nonterminals = nonterminals;
+            my $nonterminals;
             if ($args{Nonterminals}) {
-                @nonterminals = @{$args{Nonterminals}};
+                $nonterminals = $args{Nonterminals};
+            } else {
+                $nonterminals = [ nonterminals ];
             }
-            my @fftags = fftags;
+            my $fftags;
             if ($args{FFTags}) {
-                @fftags = @{$args{FFTags}};
+                $fftags = $args{FFTags};
+            } else {
+                $fftags = [ fftags ];
             }
             if ($args{TagString}) {
-                $t->_extract_data($args{TagString}, \@nonterminals, \@fftags, $separator)
+                my ($head, $tags) = _extract_data($args{TagString}, $nonterminals, $fftags, $separator)
                     or cluck("Can't extract nonterminal and tags; ignoring tag \"$args{TagString}\"");
+                $t->set_head($head);
+                $t->set_tags(@$tags);
             }
         }
 
@@ -62,18 +68,27 @@ Argument is a hashref. Keys are:
     }
 
     sub _extract_data {
-        my TreebankUtil::Node $t = shift;
         my ($s, $nonterminals, $fftags, $separator) = @_;
-        my $TAG_REGEX
-            = '^(' . join('|', map { quotemeta } @$nonterminals) . ')'
-                . "((?:(?:$separator)(?:" . join('|', map { quotemeta } @$fftags) . '))*)(?:=\d+)?$';
-        if ($s =~ m{$TAG_REGEX}x) {
-            $t->set_head($1);
-            if ($2) {
-                my @c = split(m/$separator/, $2);
-                $t->set_tags(@c[1..$#c]);
-            }
-            return 1;
+        my $nonterminal_match = join('|', map { quotemeta } @$nonterminals);
+        my $tag_match = join('|', map { quotemeta } @$fftags);
+
+        my $head;
+        my @tags;
+        my $TAG_REGEX;
+        {
+            use re 'eval';
+            $TAG_REGEX
+                = qr{
+                        ^($nonterminal_match)         # Find head
+                        (?{ $head = $^N })            # Remember it
+                        (?:(?:$separator)             # Separator (begin optional)
+                            ($tag_match)              # Tag
+                            (?{ push @tags, $^N }))*  # Remember it (end optional)
+                        (?:=\d+)?$                    # End expression with possible trace
+                }x;
+        }
+        if ($s =~ $TAG_REGEX) {
+            return ($head, \@tags);
         } else {
             return;
         }

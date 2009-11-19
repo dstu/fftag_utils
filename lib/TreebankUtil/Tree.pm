@@ -77,6 +77,10 @@ its children.
 
 =item FFSeparator: the fftag separator regex.
 
+=item Nonterminals: the nonterminals to allow in the tree
+
+=item FFTags: the form-function tags to allow in the tree
+
 =back
 
 =cut
@@ -92,6 +96,7 @@ its children.
             $i = $args{_start};
         }
         my $nonterminals = $args{Nonterminals};
+        my $fftags = $args{FFTags};
 
         my $expect_nonterminal = 1;
         my $head = TreebankUtil::Tree->new;
@@ -101,10 +106,11 @@ its children.
             if ('(' eq $ss) {
                 $i++;
                 my $child;
-                ($child, $i) = tree({ Line        => $line,
-                                      FFSeparator => $ff_separator,
+                ($child, $i) = tree({ Line         => $line,
+                                      FFSeparator  => $ff_separator,
                                       Nonterminals => $nonterminals,
-                                      _start      => $i, });
+                                      FFTags       => $fftags,
+                                      _start       => $i, });
                 $head->append_child($child);
             } elsif (')' eq $ss) {
                 $i++;
@@ -119,9 +125,10 @@ its children.
                 $l--;
 
                 if ($expect_nonterminal) {
-                    $head->data(TreebankUtil::Node->new({ TagString   => substr($line, $i, $l),
+                    $head->data(TreebankUtil::Node->new({ TagString    => substr($line, $i, $l),
                                                           Nonterminals => $nonterminals,
-                                                          FFSeparator => $ff_separator, }));
+                                                          FFTags       => $fftags,
+                                                          FFSeparator  => $ff_separator, }));
                     $expect_nonterminal = 0;
                 } else {
                     $head->append_child(substr($line, $i, $l));

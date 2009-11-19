@@ -25,10 +25,10 @@ Usage: $name [options] [infile]
 Transform trees with form-function tag annotations. The
 following schema are available:
 
-Scheme 1: ("NP-SBJ" ...) => ("NP-SBJ" ...)
-Scheme 2: ("NP-SBJ" ...) => ("NP" ("SBJ" "sbj_1") ...)
-Scheme 3: ("NP-SBJ" ...) => ("NP" ("TAGS" (SBJ "sbj_1")) ...)
-Scheme 4: ("NP-SBJ" ...) => ("SBJ" ("NP" ...))
+Scheme 1: (NP-SBJ ...) => (NP-SBJ ...)
+Scheme 2: (NP-SBJ ...) => (NP (SBJ sbj_1) ...)
+Scheme 3: (NP-SBJ ...) => (NP (TAGS (SBJ sbj_1)) ...)
+Scheme 4: (NP-SBJ ...) => (SBJ (NP ...))
 
 If infile not specified, reads from standard in. Writes to
 standard out.
@@ -46,32 +46,12 @@ my $out_joiner = '-';
 my @base_fftags = fftags;
 my @mod_fftags;
 
-# If a node has multiple tag annotations, the unary chain so
-# produced goes from most to least common nodes.
-sub transform4 {
-    my $tree = shift;
-    return $tree
-        unless ref $tree && $tree->data->tags;
-
-    $tree->children(map { transform4($_) } $tree->children);
-    if ($tree->data->tags) {
-        my @children = $tree->children;
-        my @tags = ($tree->data,
-                    map { my $n = TreebankUtil::Node->new;
-                          $n->set_head("TAG_$_");
-                          $n } sort { tag_or_label_count($a) <=> tag_or_label_count($b) } $tree->data->tags);
-        $tree->data->clear_tags;
-        my $new_tree;
-        foreach (@tags) {
-            $new_tree = TreebankUtil::Tree->new;
-            $new_tree->data($_);
-            $new_tree->children(@children);
-            @children = ($new_tree);
-        }
-        return $new_tree;
+sub tag_or_label_count {
+    if ($use_propbank) {
+        return propbank_label_count($_[0]);
+    } else {
+        return fftag_count($_[0]);
     }
-
-    return $tree;
 }
 
 sub matches_one {
@@ -95,14 +75,14 @@ my %SCHEMES =
               my $new_child = TreebankUtil::Tree->new;
               $new_child->data(TreebankUtil::Node->new);
               $new_child->data->set_head($_);
-              $new_child->children("$_" . "_1");
+              $new_child->children(lc($_) . "_1");
               $tree->prepend_child($new_child);
           }
           $tree->data->clear_tags;
           return $tree;
       },
       3 => sub {
-          # (NP-SBJ ...) => (NP (TAGS sbj_1) ...)
+          # (NP-SBJ ...) => (NP (TAGS (SBJ sbj_1)) ...)
           my $tree = shift;
           return $tree
               unless ref $tree && $tree->data->tags;
@@ -114,7 +94,7 @@ my %SCHEMES =
               my $new_child = TreebankUtil::Tree->new;
               $new_child->data(TreebankUtil::Node->new);
               $new_child->data->set_head($_);
-              $new_child->append_child($_ . "_1");
+              $new_child->append_child(lc($_) . "_1");
               $tag_child->append_child($new_child);
           }
           $tree->data->clear_tags;
@@ -122,7 +102,33 @@ my %SCHEMES =
 
           return $tree;
       },
-      4 => \&transform4,
+      4 => sub {
+          # (NP-SBJ ...) => (TAG_SBJ (NP ...))
+          # If a node has multiple tag annotations, the unary chain so
+          # produced goes from most to least common nodes.
+          my $tree = shift;
+          return $tree
+              unless ref $tree && $tree->data->tags;
+
+          if ($tree->data->tags) {
+              my @children = $tree->children;
+              my @tags = ($tree->data,
+                          map { my $n = TreebankUtil::Node->new;
+                                $n->set_head("TAG_$_");
+                                $n } sort { tag_or_label_count($a) <=> tag_or_label_count($b) } $tree->data->tags);
+              $tree->data->clear_tags;
+              my $new_tree;
+              foreach (@tags) {
+                  $new_tree = TreebankUtil::Tree->new;
+                  $new_tree->data($_);
+                  $new_tree->children(@children);
+                  @children = ($new_tree);
+              }
+              return $new_tree;
+          }
+
+          return $tree;
+      },
       "4_undo" => sub {
           my $tree = shift;
           return $tree
@@ -158,7 +164,7 @@ my %SCHEMES =
       }, );
 
 GetOptions( "scheme=s"      => \$scheme,
-            "use_propbank"  => \$use_propbank,
+            "propbank"      => \$use_propbank,
             "output-join=s" => \$out_joiner,
             "help"          => sub { print $usage; exit 0 },)
     or die "$usage\n";
