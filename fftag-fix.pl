@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+use TreebankUtil qw/tag_or_label_count/;
 use TreebankUtil::Tree qw/tree/;
 
 use Data::Dumper;
@@ -11,29 +12,6 @@ use Getopt::Long;
 use File::Basename;
 
 my $name = basename $0;
-
-# Numbers taken from WSJ sections 00-22
-my %FFTAG_ORDER =
-    ( SBJ => 78189,
-      TMP => 23059,
-      PRD => 16656,
-      LOC => 15816,
-      CLR => 15621,
-      ADV => 8089,
-      DIR => 5716,
-      MNR => 4262,
-      NOM => 4209,
-      TPC => 4056,
-      PRP => 3521,
-      LGS => 2925,
-      EXT => 2226,
-      TTL => 489,
-      HLN => 484,
-      DTV => 471,
-      PUT => 247,
-      CLF => 61,
-      BNF => 52,
-      VOC => 25 );
 
 my $usage = <<"EOF";
 $name: mutate form-function tag annotations in WSJ-style files
@@ -149,7 +127,7 @@ while (<$in_fh>) {
     if ($onetag) {
         $head->visit( sub {
                           if (ref $_[0] && $_[0]->data && $_[0]->data->tags) {
-                              my @t = sort { $FFTAG_ORDER{$b} <=> $FFTAG_ORDER{$a} } $_[0]->data->tags;
+                              my @t = sort { tag_or_label_count($b) <=> tag_or_label_count($a) } $_[0]->data->tags;
                               $_[0]->data->set_tags($t[0]);
                           }
                       } );
