@@ -5,16 +5,14 @@ use warnings;
 
 use Carp;
 
-use TreebankUtil qw/nonterminals fftags is_fftag/;
+use TreebankUtil qw/nonterminals fftags is_fftag role_labels/;
 use TreebankUtil::Node;
 use TreebankUtil::Tree qw/tree/;
 
 use Getopt::Long;
 use File::Basename;
 
-my $name = basename $0;
-
-my @mod_fftags = map { "TAG_$_" } fftags;
+my @mod_fftags = map { "TAG_$_" } (fftags, role_labels);
 
 # Numbers taken from WSJ sections 00-22
 my %FFTAG_ORDER =
@@ -38,6 +36,8 @@ my %FFTAG_ORDER =
       CLF => 61,
       BNF => 52,
       VOC => 25 );
+
+my $name = basename $0;
 
 my $usage = <<"EOF";
 $name: transform form-function tag annotations in WSJ-style files
@@ -73,7 +73,7 @@ sub transform4 {
             my @children = $tree->children;
             my @tags = ($tree->data,
                         map { my $n = TreebankUtil::Node->new;
-                              $n->set_head($_);
+                              $n->set_head("TAG_$_");
                               $n } sort { $FFTAG_ORDER{$a} <=> $FFTAG_ORDER{$b} } $tree->data->tags);
             $tree->data->clear_tags;
             my $new_tree;
@@ -102,18 +102,17 @@ sub matches_one {
 sub transform4_undo {
     my $tree = shift;
     if (ref $tree && ref $tree->data) {
-        if (is_fftag($tree->data->head) && !($tree->data->head eq 'PRP')) {
+        if (matches_one($tree->data->head, @mod_fftags)) {
             if (1 != scalar($tree->children)) {
                 croak("Bad tree: " . $tree->data->head . " expected 1 child, got " . scalar($tree->children) . ": " . $tree->stringify('-'));
             }
             my $child = ($tree->children)[0];
-            $child->data->add_tag($tree->data->head, $tree->data->tags);
+            $child->data->add_tag(map { } $tree->data->head, $tree->data->tags);
             return $child;
         } else {
             my @children;
             foreach my $child ($tree->children) {
-                if (ref $child && is_fftag($child->data->head) && !($child->data->head eq 'PRP')) {
-#               if (ref $child && matches_one($child->data->head, @mod_fftags)) {
+               if (ref $child && matches_one($child->data->head, @mod_fftags)) {
                     if (1 != scalar($child->children)) {
                         croak("Bad tree: " . $child->data->head . " expected 1 child, got " . scalar($child->children) . ": " . $child->stringify('-'));
                     }

@@ -6,7 +6,8 @@
 
     our @EXPORT_OK = qw(nonterminals nonterminal_regex
                         fftags is_fftag fftag_regex
-                        fftag_groups fftag_group fftag_group_members);
+                        fftag_groups fftag_group fftag_group_members
+                        role_labels);
 
     my @NONTERMINALS = qw( TAGS
                            TOP
@@ -104,6 +105,17 @@ Returns a regular expression that will match a nonterminal tag.
 
 =cut
     sub nonterminal_regex { my $r = join('|', map { quotemeta } @NONTERMINALS); return qr/$r/; }
+
+    my @ROLE_LABELS = qw( );
+
+=pod
+
+=head3 role_labels
+
+Returns the list of semantic role labels.
+
+=cut
+    sub role_labels { return @ROLE_LABELS; }
 
     my @FFTAGS = qw( ADV
                      BNF
