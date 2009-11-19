@@ -199,41 +199,6 @@ sub transform_tree {
     }
 }
 
-# sub transform_tree {
-#     my $root = $_[0];
-#     my @to_transform = ($root);
-#     my $transformer = $_[1];
-#     my ($tree, $data, $tags);
-#     my %temp_tags;
-#     while (@to_transform) {
-#         $tree = shift @to_transform;
-#         next
-#             unless ref $tree;
-#         # print "going to transform " . $tree->stringify('-'), "\n";
-#         push @to_transform, $tree->children
-#             unless $scheme eq '4' || $scheme eq '4_undo';
-#         $data = $tree->data;
-#         if ($positive_only) {
-#             $tags = {map { $_ => 1 } $data->tags};
-#         } else {
-#             %temp_tags = map { $_ => 1 } $data->tags;
-#             $tags = {};
-#             for (fftags) {
-#                 $tags->{$_} = $temp_tags{$_} ? 1 : 0;
-#             }
-#         }
-#         $tree = $transformer->($tree,
-#                                $data,
-#                                $tags);
-#         $data->clear_tags
-#             if $clear_tags;
-#         push @to_transform, $tree->children
-#             if $scheme eq '4' || $scheme eq '4_undo';
-#     }
-
-#     return $root;
-# }
-
 my $in_fn = shift;
 my $in_fh;
 if ($in_fn) {
