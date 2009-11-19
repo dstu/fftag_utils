@@ -5,7 +5,7 @@ use warnings;
 
 use Carp;
 
-use TreebankUtil qw/nonterminals fftags is_fftag role_labels/;
+use TreebankUtil qw/nonterminals fftags is_fftag role_labels tag_or_label_count/;
 use TreebankUtil::Node;
 use TreebankUtil::Tree qw/tree/;
 
@@ -14,29 +14,6 @@ use File::Basename;
 
 my @base_fftags = (fftags, role_labels);
 my @mod_fftags = map { "TAG_$_" } @base_fftags;
-
-# Numbers taken from WSJ sections 00-22
-my %FFTAG_ORDER =
-    ( SBJ => 78189,
-      TMP => 23059,
-      PRD => 16656,
-      LOC => 15816,
-      CLR => 15621,
-      ADV => 8089,
-      DIR => 5716,
-      MNR => 4262,
-      NOM => 4209,
-      TPC => 4056,
-      PRP => 3521,
-      LGS => 2925,
-      EXT => 2226,
-      TTL => 489,
-      HLN => 484,
-      DTV => 471,
-      PUT => 247,
-      CLF => 61,
-      BNF => 52,
-      VOC => 25 );
 
 my $name = basename $0;
 
@@ -65,27 +42,31 @@ EOF
 my $scheme;
 my $out_joiner = '-';
 
+# If a node has multiple tag annotations, the unary chain so
+# produced goes from most to least common nodes.
 sub transform4 {
     my $tree = shift;
-    if (ref $tree && ref $tree->data) {
-        $tree->children(map { transform4($_) } $tree->children);
-        if ($tree->data->tags) {
-            my @children = $tree->children;
-            my @tags = ($tree->data,
-                        map { my $n = TreebankUtil::Node->new;
-                              $n->set_head("TAG_$_");
-                              $n } sort { $FFTAG_ORDER{$a} <=> $FFTAG_ORDER{$b} } $tree->data->tags);
-            $tree->data->clear_tags;
-            my $new_tree;
-            foreach (@tags) {
-                $new_tree = TreebankUtil::Tree->new;
-                $new_tree->data($_);
-                $new_tree->children(@children);
-                @children = ($new_tree);
-            }
-            return $new_tree;
+    return $tree
+        unless ref $tree && $tree->data->tags;
+
+    $tree->children(map { transform4($_) } $tree->children);
+    if ($tree->data->tags) {
+        my @children = $tree->children;
+        my @tags = ($tree->data,
+                    map { my $n = TreebankUtil::Node->new;
+                          $n->set_head("TAG_$_");
+                          $n } sort { tag_or_label_count($a) <=> tag_or_label_count($b) } $tree->data->tags);
+        $tree->data->clear_tags;
+        my $new_tree;
+        foreach (@tags) {
+            $new_tree = TreebankUtil::Tree->new;
+            $new_tree->data($_);
+            $new_tree->children(@children);
+            @children = ($new_tree);
         }
+        return $new_tree;
     }
+
     return $tree;
 }
 
@@ -100,35 +81,6 @@ sub matches_one {
 }
 
 sub transform4_undo {
-    my $tree = shift;
-    if (ref $tree && ref $tree->data) {
-        if (matches_one($tree->data->head, @mod_fftags)) {
-            if (1 != scalar($tree->children)) {
-                croak("Bad tree: " . $tree->data->head . " expected 1 child, got " . scalar($tree->children) . ": " . $tree->stringify('-'));
-            }
-            my $child = ($tree->children)[0];
-            $child->data->add_tag(substr($tree->data->head, 5), $tree->data->tags);
-            return $child;
-        } else {
-            my @children;
-            foreach my $child ($tree->children) {
-               if (ref $child && matches_one($child->data->head, @mod_fftags)) {
-                    if (1 != scalar($child->children)) {
-                        croak("Bad tree: " . $child->data->head . " expected 1 child, got " . scalar($child->children) . ": " . $child->stringify('-'));
-                    }
-                    foreach my $grandchild ($child->children) {
-                        $grandchild->data->add_tag(substr($child->data->head, 5), $child->data->tags)
-                            if ref $grandchild;
-                        push @children, $grandchild;
-                    }
-                } else {
-                    push @children, $child;
-                }
-            }
-            $tree->children(@children);
-        }
-    }
-    return $tree;
 }
 
 my %SCHEMES =
@@ -170,7 +122,39 @@ my %SCHEMES =
           return $tree;
       },
       4 => \&transform4,
-      "4_undo" => \&transform4_undo, );
+      "4_undo" => sub {
+          my $tree = shift;
+          return $tree
+              unless ref $tree && !$tree->is_leaf;
+
+          if (matches_one($tree->data->head, @mod_fftags)) {
+              if (1 != scalar($tree->children)) {
+                  croak("Bad tree: " . $tree->data->head . " expected 1 child, got " . scalar($tree->children) . ": " . $tree->stringify('-'));
+              }
+              my $child = ($tree->children)[0];
+              $child->data->add_tag(substr($tree->data->head, 4), $tree->data->tags);
+              return $child;
+          } else {
+              my @children;
+              foreach my $child ($tree->children) {
+                  if (ref $child && matches_one($child->data->head, @mod_fftags)) {
+                      if (1 != scalar($child->children)) {
+                          croak("Bad tree: " . $child->data->head . " expected 1 child, got " . scalar($child->children) . ": " . $child->stringify('-'));
+                      }
+                      foreach my $grandchild ($child->children) {
+                          $grandchild->data->add_tag(substr($child->data->head, 4), $child->data->tags)
+                              if ref $grandchild;
+                          push @children, $grandchild;
+                      }
+                  } else {
+                      push @children, $child;
+                  }
+              }
+              $tree->children(@children);
+          }
+
+          return $tree;
+    }, );
 
 GetOptions( "scheme=s" => \$scheme,
             "output-join=s" => \$out_joiner,

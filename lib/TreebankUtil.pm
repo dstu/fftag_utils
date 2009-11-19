@@ -1,13 +1,12 @@
 {
     package TreebankUtil;
-    # use TreebankUtil::Node;
-    # use TreebankUtil::Tree;
     use Exporter qw/import/;
 
     our @EXPORT_OK = qw(nonterminals nonterminal_regex
                         fftags is_fftag fftag_regex
                         fftag_groups fftag_group fftag_group_members
-                        role_labels);
+                        role_labels
+                        tag_or_label_count);
 
     my @NONTERMINALS = qw( TAGS
                            TOP
@@ -225,6 +224,38 @@ Returns the members of the tag group.
 
 =cut
     sub fftag_group_members { return grep { $_[0] eq $FFTAG_GROUP{$_} } fftags; }
+
+# Numbers taken from WSJ sections 00-22
+    my %TAG_COUNTS =
+        ( SBJ => 78189,
+          TMP => 23059,
+          PRD => 16656,
+          LOC => 15816,
+          CLR => 15621,
+          ADV => 8089,
+          DIR => 5716,
+          MNR => 4262,
+          NOM => 4209,
+          TPC => 4056,
+          PRP => 3521,
+          LGS => 2925,
+          EXT => 2226,
+          TTL => 489,
+          HLN => 484,
+          DTV => 471,
+          PUT => 247,
+          CLF => 61,
+          BNF => 52,
+          VOC => 25 );
+
+=pod
+
+=head3 tag_or_label_count
+
+Returns the number of times that the given fftag or semantic role label appears in WSJ sections 2-21.
+
+=cut
+    sub tag_or_label_count { return $TAG_COUNTS{$_[0]}; }
 
 }
 
