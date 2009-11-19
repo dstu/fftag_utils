@@ -5,9 +5,14 @@
     our @EXPORT_OK = qw(nonterminals nonterminal_regex
                         fftags is_fftag fftag_regex
                         fftag_groups fftag_group fftag_group_members
-                        role_labels
-                        tag_or_label_count);
+                        fftag_count
+                        propbank_labels is_propbank_label propbank_label_regex
+                        propbank_label_groups propbank_label_group propbank_label_group_members
+                        propbank_label_count);
 
+    # FIXME: TAGS, TOP, ROOT, and XXX may not be valid Penn
+    # Treebank nonterminals, but they're useful, so I stuck them
+    # here.
     my @NONTERMINALS = qw( TAGS
                            XXX
                            TOP
@@ -92,7 +97,8 @@
 
 =head3 nonterminals
 
-Returns the list of nonterminal tags that the Penn treebank uses.
+Returns the list of nonterminal tags that the Penn treebank
+uses, plus "XXX", "ROOT", "TOP", and "TAGS".
 
 =cut
     sub nonterminals { return @NONTERMINALS; }
@@ -106,16 +112,196 @@ Returns a regular expression that will match a nonterminal tag.
 =cut
     sub nonterminal_regex { my $r = join('|', map { quotemeta } @NONTERMINALS); return qr/$r/; }
 
-    my @ROLE_LABELS = qw( );
+    my @PROPBANK_LABELS = qw( A0
+                              A1
+                              A2
+                              A3
+                              A4
+                              A5
+                              AA
+                              AM-TMP
+                              AM-MOD
+                              AM-ADV
+                              AM-MNR
+                              AM-NEG
+                              AM-LOC
+                              AM-DIS
+                              AM-CAU
+                              AM-EXT
+                              AM-PNC
+                              AM-DIR
+                              R-A0
+                              R-A1
+                              R-A2
+                              R-A3
+                              R-A4
+                              R-A5
+                              R-AA
+                              R-AM-TMP
+                              R-AM-MOD
+                              R-AM-ADV
+                              R-AM-MNR
+                              R-AM-NEG
+                              R-AM-LOC
+                              R-AM-DIS
+                              R-AM-CAU
+                              R-AM-EXT
+                              R-AM-PNC
+                              R-AM-DIR
+                              C-A0
+                              C-A1
+                              C-A2
+                              C-A3
+                              C-A4
+                              C-A5
+                              C-AA
+                              C-AM-TMP
+                              C-AM-MOD
+                              C-AM-ADV
+                              C-AM-MNR
+                              C-AM-NEG
+                              C-AM-LOC
+                              C-AM-DIS
+                              C-AM-CAU
+                              C-AM-EXT
+                              C-AM-PNC
+                              C-AM-DIR );
+
+    my @PROPBANK_GROUPS = qw ( PREDICATE
+                               ADJUNCTIVE
+                               CAUSATIVE
+                               VERB
+                               REFERENCE
+                               CONTINUATION );
+
+    my %PROPBANK_GROUP = ( 'A0' => "PREDICATE",
+                           'A1' => "PREDICATE",
+                           'A2' => "PREDICATE",
+                           'A3' => "PREDICATE",
+                           'A4' => "PREDICATE",
+                           'A5' => "PREDICATE",
+                           'AA' => "CAUSATIVE",
+                           'AM-TMP' => "ADJUNCTIVE",
+                           'AM-MOD' => "ADJUNCTIVE",
+                           'AM-ADV' => "ADJUNCTIVE",
+                           'AM-MNR' => "ADJUNCTIVE",
+                           'AM-NEG' => "ADJUNCTIVE",
+                           'AM-LOC' => "ADJUNCTIVE",
+                           'AM-DIS' => "ADJUNCTIVE",
+                           'AM-CAU' => "ADJUNCTIVE",
+                           'AM-EXT' => "ADJUNCTIVE",
+                           'AM-PNC' => "ADJUNCTIVE",
+                           'AM-DIR' => "ADJUNCTIVE",
+                           'R-A0' => "REFERENCE",
+                           'R-A1' => "REFERENCE",
+                           'R-A2' => "REFERENCE",
+                           'R-A3' => "REFERENCE",
+                           'R-A4' => "REFERENCE",
+                           'R-A5' => "REFERENCE",
+                           'R-AA' => "REFERENCE",
+                           'R-AM-TMP' => "REFERENCE",
+                           'R-AM-MOD' => "REFERENCE",
+                           'R-AM-ADV' => "REFERENCE",
+                           'R-AM-MNR' => "REFERENCE",
+                           'R-AM-NEG' => "REFERENCE",
+                           'R-AM-LOC' => "REFERENCE",
+                           'R-AM-DIS' => "REFERENCE",
+                           'R-AM-CAU' => "REFERENCE",
+                           'R-AM-EXT' => "REFERENCE",
+                           'R-AM-PNC' => "REFERENCE",
+                           'R-AM-DIR' => "REFERENCE",
+                           'C-A0' => "CONTINUATION",
+                           'C-A1' => "CONTINUATION",
+                           'C-A2' => "CONTINUATION",
+                           'C-A3' => "CONTINUATION",
+                           'C-A4' => "CONTINUATION",
+                           'C-A5' => "CONTINUATION",
+                           'C-AA' => "CONTINUATION",
+                           'C-AM-TMP' => "CONTINUATION",
+                           'C-AM-MOD' => "CONTINUATION",
+                           'C-AM-ADV' => "CONTINUATION",
+                           'C-AM-MNR' => "CONTINUATION",
+                           'C-AM-NEG' => "CONTINUATION",
+                           'C-AM-LOC' => "CONTINUATION",
+                           'C-AM-DIS' => "CONTINUATION",
+                           'C-AM-CAU' => "CONTINUATION",
+                           'C-AM-EXT' => "CONTINUATION",
+                           'C-AM-PNC' => "CONTINUATION",
+                           'C-AM-DIR' => "CONTINUATION", );
+
+    # Numbers still to be gathered.
+    my %PROPBANK_COUNTS;
 
 =pod
 
-=head3 role_labels
+=head3 propbank_labels
 
-Returns the list of semantic role labels.
+Returns the list of propbank role labels.
 
 =cut
-    sub role_labels { return @ROLE_LABELS; }
+    sub propbank_labels { return @PROPBANK_LABELS; }
+
+=pod
+
+=head3 is_propbank_label
+
+Returns true iff its argument is a propbank
+label. Case-sensitive.
+
+=cut
+    sub is_propbank_label {
+        for (propbank_labels) {
+            if ($_ eq $_[0]) {
+                return 1;
+            }
+        }
+        return;
+    }
+
+=pod
+
+=head3 propbank_label_regex
+
+Returns a regular expression that matches a propbank label
+
+=cut
+    sub propbank_label_regex { my $r = join('|', map { quotemeta } @PROPBANK_LABELS); return qr/$r/; }
+
+=pod
+
+=head3 propbank_label_groups
+
+Returns the propbank label groups.
+
+=cut
+    sub propbank_label_groups { return @PROPBANK_GROUPS; }
+
+=pod
+
+=head3 propbank_group
+
+Returns the propbank label group of its argument.
+
+=cut
+    sub propbank_label_group { return $PROPBANK_GROUP{$_[0]}; }
+
+=pod
+
+=head3 propbank_label_group_members
+
+Returns the members of the given propbank label group.
+
+=cut
+    sub propbank_label_group_members { return grep { $_[0] eq $PROPBANK_GROUP{$_} } propbank_labels; }
+
+=pod
+
+=head3 propbank_label_count
+
+Returns the count of the given propbank label, taken from WSJ sections 2-21.
+
+=cut
+    sub propbank_label_count { return $PROPBANK_COUNTS{$_[0]}; }
 
     my @FFTAGS = qw( ADV
                      BNF
@@ -165,6 +351,29 @@ Returns the list of semantic role labels.
                         TTL => "MISC",
                         CLR => "RELATED", );
 
+    # Numbers taken from WSJ sections 02-22
+    my %TAG_COUNTS =
+        ( SBJ => 78189,
+          TMP => 23059,
+          PRD => 16656,
+          LOC => 15816,
+          CLR => 15621,
+          ADV => 8089,
+          DIR => 5716,
+          MNR => 4262,
+          NOM => 4209,
+          TPC => 4056,
+          PRP => 3521,
+          LGS => 2925,
+          EXT => 2226,
+          TTL => 489,
+          HLN => 484,
+          DTV => 471,
+          PUT => 247,
+          CLF => 61,
+          BNF => 52,
+          VOC => 25 );
+
 =pod
 
 =head3 fftags
@@ -178,7 +387,7 @@ Returns the list of form-function tags used in the Penn treebank.
 
 =head3 is_fftag
 
-Returns true iff argument is an fftag. (Case-sensitive.)
+Returns true iff argument is an fftag. Case-sensitive.
 
 =cut
     sub is_fftag {
@@ -226,40 +435,18 @@ Returns the members of the tag group.
 =cut
     sub fftag_group_members { return grep { $_[0] eq $FFTAG_GROUP{$_} } fftags; }
 
-# Numbers taken from WSJ sections 00-22
-    my %TAG_COUNTS =
-        ( SBJ => 78189,
-          TMP => 23059,
-          PRD => 16656,
-          LOC => 15816,
-          CLR => 15621,
-          ADV => 8089,
-          DIR => 5716,
-          MNR => 4262,
-          NOM => 4209,
-          TPC => 4056,
-          PRP => 3521,
-          LGS => 2925,
-          EXT => 2226,
-          TTL => 489,
-          HLN => 484,
-          DTV => 471,
-          PUT => 247,
-          CLF => 61,
-          BNF => 52,
-          VOC => 25 );
-
 =pod
 
-=head3 tag_or_label_count
+=head3 tag_count
 
-Returns the number of times that the given fftag or semantic role label appears in WSJ sections 2-21.
+Returns the number of times that the given fftag or semantic
+role label appears in WSJ sections 2-21.
 
 =cut
-    sub tag_or_label_count { return $TAG_COUNTS{$_[0]}; }
+    sub fftag_count { return $TAG_COUNTS{$_[0]}; }
 
 }
 
 1;
 
-__END_
+__END__

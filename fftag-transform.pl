@@ -5,15 +5,15 @@ use warnings;
 
 use Carp;
 
-use TreebankUtil qw/nonterminals fftags is_fftag role_labels tag_or_label_count/;
+use TreebankUtil qw/nonterminals
+                    fftags is_fftag fftag_count
+                    propbank_labels is_propbank_label propbank_label_count/;
+
 use TreebankUtil::Node;
 use TreebankUtil::Tree qw/tree/;
 
 use Getopt::Long;
 use File::Basename;
-
-my @base_fftags = (fftags, role_labels);
-my @mod_fftags = map { "TAG_$_" } @base_fftags;
 
 my $name = basename $0;
 
@@ -22,8 +22,8 @@ $name: transform form-function tag annotations in WSJ-style files
 
 Usage: $name [options] [infile]
 
-Change trees with form-function tag annotations. The following
-schema are available:
+Transform trees with form-function tag annotations. The
+following schema are available:
 
 Scheme 1: ("NP-SBJ" ...) => ("NP-SBJ" ...)
 Scheme 2: ("NP-SBJ" ...) => ("NP" ("SBJ" "sbj_1") ...)
@@ -34,13 +34,17 @@ If infile not specified, reads from standard in. Writes to
 standard out.
 
 Options:
- --scheme, -s: select scheme number from above
- --output-join: string to join fftags with in output (default '-')
+ --scheme, -s:   select scheme number from above
+ --propbank, -p: use propbank labels instead of fftags
+ --output-join:  string to join fftags with in output
+                 (default '-')
 
 EOF
 
-my $scheme;
+my ($scheme, $use_propbank);
 my $out_joiner = '-';
+my @base_fftags = fftags;
+my @mod_fftags;
 
 # If a node has multiple tag annotations, the unary chain so
 # produced goes from most to least common nodes.
@@ -78,9 +82,6 @@ sub matches_one {
         }
     }
     return;
-}
-
-sub transform4_undo {
 }
 
 my %SCHEMES =
@@ -154,16 +155,22 @@ my %SCHEMES =
           }
 
           return $tree;
-    }, );
+      }, );
 
-GetOptions( "scheme=s" => \$scheme,
+GetOptions( "scheme=s"      => \$scheme,
+            "use_propbank"  => \$use_propbank,
             "output-join=s" => \$out_joiner,
-            "help"     => sub { print $usage; exit 0 },)
+            "help"          => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
 unless ($SCHEMES{$scheme}) {
     die "Invalid scheme. Must choose one of: (" . join(' ', sort keys(%SCHEMES)) . ")\n";
 }
+
+if ($use_propbank) {
+    @base_fftags = propbank_labels;
+}
+@mod_fftags = map { "TAG_$_" } @base_fftags;
 
 sub transform_tree {
     my $tree = shift;
