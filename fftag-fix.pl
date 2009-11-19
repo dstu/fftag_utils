@@ -21,20 +21,19 @@ Usage: $name [options] [infile]
 Automatically strips trace annotations (=1, etc.).
 
 When reading a file, accepts "xx" or "-" as joiner between
-label and fftag. (I.e., either "NP-SBJ" or "NPxxSBJ".)
+label and fftag ("NP-SBJ" or "NPxxSBJ").
 
 If infile not specified, reads from standard in. Writes to
 standard out.
 
 Options:
  --joiner, -j    specify string to join annotations with
-                 (for output; default "-")
+                 for output (default "-")
  --keep, -k      specify only tags to keep (-k tag1 tag2 ...)
  --strip, -s     strip tags
- --replace, -r   replace tags with generic tag SBJ
- --one-tag, -o   make all occurrences of multiple tags just
-                 one tag, choosing the most frequent tag in
-                 the set
+ --replace, -r   replace all tags with SBJ
+ --one-tag, -o   reduce all occurrences of multiple tags to just
+                 the most frequent one in the set
  --unary-test    replaces ff tags with unary chains
                  (this is for a baseline test)
 
