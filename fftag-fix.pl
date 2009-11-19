@@ -83,7 +83,6 @@ GetOptions( "joiner=s"   => \$joiner,
             "one-tag"    => \$onetag,
             "exec=s"     => \$exec,
             "unary-test" => \$unary_test,
-            "t4"         => \$transform_4,
             "help"       => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
@@ -145,8 +144,6 @@ while (<$in_fh>) {
                       } );
     } elsif ($unary_test) {
         $head = make_unary($head);
-    } elsif ($transform_4) {
-        $head = transform4($head);
     }
 
     if ($onetag) {
@@ -191,28 +188,5 @@ sub make_unary {
     return $tree;
 }
 
-sub transform4 {
-    my $tree = shift;
-    if (ref $tree && ref $tree->data) {
-        $tree->children(map { transform4($_) } $tree->children);
-        if ($tree->data->tags) {
-            my @children = $tree->children;
-            my @tags = ($tree->data,
-                        map { my $n = TreebankUtil::Node->new;
-                              $n->set_head($_);
-                              $n } sort { $FFTAG_ORDER{$a} <=> $FFTAG_ORDER{$b} } $tree->data->tags);
-            $tree->data->clear_tags;
-            my $new_tree;
-            foreach (@tags) {
-                $new_tree = TreebankUtil::Tree->new;
-                $new_tree->data($_);
-                $new_tree->children(@children);
-                @children = ($new_tree);
-            }
-            return $new_tree;
-        }
-    }
-    return $tree;
-}
 
 __END__
