@@ -12,7 +12,8 @@ use TreebankUtil::Tree qw/tree/;
 use Getopt::Long;
 use File::Basename;
 
-my @mod_fftags = map { "TAG_$_" } (fftags, role_labels);
+my @base_fftags = (fftags, role_labels);
+my @mod_fftags = map { "TAG_$_" } @base_fftags;
 
 # Numbers taken from WSJ sections 00-22
 my %FFTAG_ORDER =
@@ -57,12 +58,11 @@ standard out.
 
 Options:
  --scheme, -s: select scheme number from above
- --clear, --no-clear: clear tags after scheme is applied (default don't)
  --output-join: string to join fftags with in output (default '-')
 
 EOF
 
-my ($scheme, $clear_tags);
+my $scheme;
 my $out_joiner = '-';
 
 sub transform4 {
@@ -173,7 +173,6 @@ my %SCHEMES =
       "4_undo" => \&transform4_undo, );
 
 GetOptions( "scheme=s" => \$scheme,
-            "clear!"   => \$clear_tags,
             "output-join=s" => \$out_joiner,
             "help"     => sub { print $usage; exit 0 },)
     or die "$usage\n";
@@ -211,8 +210,12 @@ while (<$in_fh>) {
     chomp;
 
     my $tree;
-    if ($scheme eq '4_undo') {
-        $tree = tree({ Nonterminals => [fftags, nonterminals],
+    if ($scheme eq '4') {
+        $tree = tree({ FFTags => \@base_fftags,
+                       Line => $_,
+                       FFSeparator => 'xx|-', });
+    } elsif ($scheme eq '4_undo') {
+        $tree = tree({ Nonterminals => [nonterminals, @mod_fftags],
                        Line => $_,
                        FFSeparator => 'xx|-', });
     } else {
