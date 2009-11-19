@@ -107,7 +107,7 @@ sub transform4_undo {
                 croak("Bad tree: " . $tree->data->head . " expected 1 child, got " . scalar($tree->children) . ": " . $tree->stringify('-'));
             }
             my $child = ($tree->children)[0];
-            $child->data->add_tag(map { substr($_, 5) } $tree->data->head, $tree->data->tags);
+            $child->data->add_tag(substr($tree->data->head, 5), $tree->data->tags);
             return $child;
         } else {
             my @children;
@@ -117,7 +117,7 @@ sub transform4_undo {
                         croak("Bad tree: " . $child->data->head . " expected 1 child, got " . scalar($child->children) . ": " . $child->stringify('-'));
                     }
                     foreach my $grandchild ($child->children) {
-                        $grandchild->data->add_tag($child->data->head, $child->data->tags)
+                        $grandchild->data->add_tag(substr($child->data->head, 5), $child->data->tags)
                             if ref $grandchild;
                         push @children, $grandchild;
                     }
