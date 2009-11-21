@@ -67,7 +67,7 @@ my %SCHEMES =
           for ($tree->data->tags) {
               my $new_child = TreebankUtil::Tree->new;
               $new_child->data(TreebankUtil::Node->new);
-              $new_child->data->set_head($_);
+              $new_child->data->head($_);
               $new_child->children(lc($_) . "_1");
               $tree->prepend_child($new_child);
           }
@@ -82,11 +82,11 @@ my %SCHEMES =
 
           my $tag_child = TreebankUtil::Tree->new;
           $tag_child->data(TreebankUtil::Node->new);
-          $tag_child->data->set_head("TAGS");
+          $tag_child->data->head("TAGS");
           for ($tree->data->tags) {
               my $new_child = TreebankUtil::Tree->new;
               $new_child->data(TreebankUtil::Node->new);
-              $new_child->data->set_head($_);
+              $new_child->data->head($_);
               $new_child->append_child(lc($_) . "_1");
               $tag_child->append_child($new_child);
           }
@@ -107,7 +107,7 @@ my %SCHEMES =
               my @children = $tree->children;
               my @tags = ($tree->data,
                           map { my $n = TreebankUtil::Node->new;
-                                $n->set_head("TAG_$_");
+                                $n->head("TAG_$_");
                                 $n } sort { tag_or_label_count($a) <=> tag_or_label_count($b) } $tree->data->tags);
               $tree->data->clear_tags;
               my $new_tree;
@@ -178,8 +178,8 @@ sub transform_tree {
         my $new_tree = TreebankUtil::Tree->new;
         $new_tree->children(map { $transformer->($_) } map { transform_tree($_, $transformer) } $tree->children);
         $new_tree->data(TreebankUtil::Node->new);
-        $new_tree->data->set_head($tree->data->head);
-        $new_tree->data->set_tags($tree->data->tags);
+        $new_tree->data->head($tree->data->head);
+        $new_tree->data->tags($tree->data->tags);
         $new_tree = $transformer->($new_tree);
         return $new_tree;
     } else {

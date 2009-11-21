@@ -217,9 +217,7 @@ my $reader = node_reader({ Tags       => [$use_propbank ?
                            Separators => ['xx', '-'], });
 while (!eof($gold_fh) && !eof($test_fh)) {
     $gold_line = <$gold_fh>;
-    chomp $gold_line;
     $test_line = <$test_fh>;
-    chomp $test_line;
     %scores = compare_spans([spans({ Line        => $gold_line,
                                      NodeReader  => $reader, })],
                             $gold_line,

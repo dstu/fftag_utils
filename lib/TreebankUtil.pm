@@ -20,7 +20,17 @@ Version 0.01
     my @labels = nonterminals;
     print "Default nonterminals: " . join(' ', @labels) . "\n";
 
+This module is designed to make it easier to build software that
+uses standard treebank conventions.
+
+Two annotationsets are supported: the Penn Treebank
+form-function tags and the Propbank semantic role labels. To
+avoid possible ambiguity, the Propbank labels have had hyphens
+replaced by colons.
+
 =head1 EXPORT
+
+None by default. Available functions follow.
 
 nonterminals, nonterminal_regex, fftags, is_fftag, fftag_regex,
 fftag_groups, fftag_group, fftag_group_members, fftag_count,
@@ -409,7 +419,7 @@ Returns true iff argument is an fftag. Case-sensitive.
                 return 1;
             }
         }
-        return undef;
+        return;
     }
 
 =head2 fftag_regex

@@ -16,7 +16,16 @@ Version 0.01
 
 =head1 SYNOPSIS
 
+This class represents a structured node in a treebank tree. A
+node has a head, the actual grammatical label for the node, and
+a set of tags.
+
+The methods that read nodes from strings are strict, such that
+you must specify what constitutes a valid node ahead of time.
+
 =head1 EXPORT
+
+None by default. Available functions are:
 
 spans, node_reader
 
@@ -31,7 +40,6 @@ spans, node_reader
 
     use Exporter qw/import/;
     our @EXPORT_OK = qw/spans node_reader/;
-    use Carp qw/cluck/;
     use TreebankUtil qw(nonterminals fftags);
 
 =head2 new
@@ -61,8 +69,8 @@ its returned subref repeatedly.
             if ($args{NodeString}) {
                 my ($head, $tags) = node_reader(\%args)->($args{NodeString})
                     or return $t;
-                $t->set_head($head);
-                $t->set_tags(@$tags);
+                $t->head($head);
+                $t->tags(@$tags);
             }
         }
 
@@ -77,7 +85,7 @@ its returned subref repeatedly.
                                Tags         => [fftags], });
     my @nodes;
     while (<STDIN>) {
-      chomp; push @nodes, $reader->($_);
+      push @nodes, $reader->($_);
     }
 
 Takes a hashref that may have the following keys:
@@ -100,6 +108,11 @@ separators. Defaults to C<< [ "-" ] >>.
 Returns a subref that maps from strings to nodes, using the
 specified parameters. Subref automatically chomps its input for
 you.
+
+If you're reading a lot of nodes, it's cheaper to use this
+function than call L</new> repeatedly, as L</new> just calls
+this, and rebuilding the regex to recognize nodes over and over
+again is wasteful.
 
 =cut
     sub node_reader {
@@ -137,21 +150,21 @@ you.
             @tags = ();
             if ($s =~ m{$TAG_REGEX}x) {
                 my $n = TreebankUtil::Node->new;
-                $n->set_head($head);
-                $n->set_tags(@tags);
+                $n->head($head);
+                $n->tags(@tags);
                 return $n;
             } else {
-                cluck("Can't extract nonterminal and tags; ignoring node \"$s\"");
+                warn("Can't extract nonterminal and tags; ignoring node \"$s\"\n");
                 return;
             }
         }
     }
 
-    sub set_head {
-        my TreebankUtil::Node $t = shift;
-        $t->{_head} = shift;
-        return $t;
-    }
+    # sub set_head {
+    #     my TreebankUtil::Node $t = shift;
+    #     $t->{_head} = shift;
+    #     return $t;
+    # }
 
     sub head {
         my TreebankUtil::Node $t = shift;
@@ -161,11 +174,11 @@ you.
         return $t->{_head};
     }
 
-    sub set_tags {
-        my TreebankUtil::Node $t = shift;
-        $t->{_tags} = {map { $_ => 1 } @_};
-        return $t;
-    }
+    # sub set_tags {
+    #     my TreebankUtil::Node $t = shift;
+    #     $t->{_tags} = {map { $_ => 1 } @_};
+    #     return $t;
+    # }
 
     sub tags {
         my TreebankUtil::Node $t = shift;

@@ -106,7 +106,7 @@ while (<$in_fh>) {
         $head->visit( sub {
                           if (ref $_[0] && $_[0]->data && $_[0]->data->tags) {
                               $_[0]->data->clear_tags;
-                              $_[0]->data->set_tags("SBJ");
+                              $_[0]->data->tags("SBJ");
                           }
                       } );
     } elsif (@keeptags) {
@@ -114,7 +114,7 @@ while (<$in_fh>) {
         $head->visit( sub {
                           if (ref $_[0] && $_[0]->data) {
                               my @t = grep { $keeptags{$_} } $_[0]->data->tags;
-                              $_[0]->data->set_tags(@t);
+                              $_[0]->data->tags(@t);
                           }
                       } );
     } elsif ($unary_test) {
@@ -125,7 +125,7 @@ while (<$in_fh>) {
         $head->visit( sub {
                           if (ref $_[0] && $_[0]->data && $_[0]->data->tags) {
                               my @t = sort { tag_or_label_count($b) <=> tag_or_label_count($a) } $_[0]->data->tags;
-                              $_[0]->data->set_tags($t[0]);
+                              $_[0]->data->tags($t[0]);
                           }
                       } );
     }
