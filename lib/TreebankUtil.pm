@@ -1,5 +1,38 @@
 {
     package TreebankUtil;
+
+=head1 NAME
+
+TreebankUtil - Utilities for manipulating Penn Treebank-style data
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+    our $VERSION = '0.01';
+
+=head1 SYNOPSIS
+
+    use TreebankUtil qw/nonterminals/;
+
+    my @labels = nonterminals;
+    print "Default nonterminals: " . join(' ', @labels) . "\n";
+
+=head1 EXPORT
+
+nonterminals, nonterminal_regex, fftags, is_fftag, fftag_regex,
+fftag_groups, fftag_group, fftag_group_members, fftag_count,
+propbank_labels, is_propbank_label, propbank_label_regex,
+propbank_label_groups, propbank_label_group
+propbank_label_group_members, propbank_label_count,
+tag_or_label_count
+
+=head1 FUNCTIONS
+
+=cut
+
     use Exporter qw/import/;
 
     our @EXPORT_OK = qw(nonterminals nonterminal_regex
@@ -94,9 +127,7 @@
                            WP$
                            WRB );
 
-=pod
-
-=head3 nonterminals
+=head2 nonterminals
 
 Returns the list of nonterminal tags that the Penn treebank
 uses, plus "XXX", "ROOT", "TOP", and "TAGS".
@@ -104,9 +135,7 @@ uses, plus "XXX", "ROOT", "TOP", and "TAGS".
 =cut
     sub nonterminals { return @NONTERMINALS; }
 
-=pod
-
-=head3 nonterminal_regex
+=head2 nonterminal_regex
 
 Returns a regular expression that will match a nonterminal tag.
 
@@ -234,18 +263,14 @@ Returns a regular expression that will match a nonterminal tag.
     # Numbers still to be gathered.
     my %PROPBANK_COUNTS;
 
-=pod
-
-=head3 propbank_labels
+=head2 propbank_labels
 
 Returns the list of propbank role labels.
 
 =cut
     sub propbank_labels { return @PROPBANK_LABELS; }
 
-=pod
-
-=head3 is_propbank_label
+=head2 is_propbank_label
 
 Returns true iff its argument is a propbank
 label. Case-sensitive.
@@ -260,45 +285,35 @@ label. Case-sensitive.
         return;
     }
 
-=pod
-
-=head3 propbank_label_regex
+=head2 propbank_label_regex
 
 Returns a regular expression that matches a propbank label
 
 =cut
     sub propbank_label_regex { my $r = join('|', map { quotemeta } @PROPBANK_LABELS); return qr/$r/; }
 
-=pod
-
-=head3 propbank_label_groups
+=head2 propbank_label_groups
 
 Returns the propbank label groups.
 
 =cut
     sub propbank_label_groups { return @PROPBANK_GROUPS; }
 
-=pod
-
-=head3 propbank_group
+=head2 propbank_group
 
 Returns the propbank label group of its argument.
 
 =cut
     sub propbank_label_group { return $PROPBANK_GROUP{$_[0]}; }
 
-=pod
-
-=head3 propbank_label_group_members
+=head2 propbank_label_group_members
 
 Returns the members of the given propbank label group.
 
 =cut
     sub propbank_label_group_members { return grep { $_[0] eq $PROPBANK_GROUP{$_} } propbank_labels; }
 
-=pod
-
-=head3 propbank_label_count
+=head2 propbank_label_count
 
 Returns the count of the given propbank label, taken from WSJ sections 2-21.
 
@@ -376,18 +391,14 @@ Returns the count of the given propbank label, taken from WSJ sections 2-21.
           BNF => 52,
           VOC => 25 );
 
-=pod
-
-=head3 fftags
+=head2 fftags
 
 Returns the list of form-function tags used in the Penn treebank.
 
 =cut
     sub fftags { return @FFTAGS; }
 
-=pod
-
-=head3 is_fftag
+=head2 is_fftag
 
 Returns true iff argument is an fftag. Case-sensitive.
 
@@ -401,45 +412,35 @@ Returns true iff argument is an fftag. Case-sensitive.
         return undef;
     }
 
-=pod
-
-=head3 fftag_regex
+=head2 fftag_regex
 
 Returns a regular expression that matches a nonterminal tag.
 
 =cut
     sub fftag_regex { my $r = join('|', map { quotemeta } @FFTAGS); return qr/$r/; }
 
-=pod
-
-=head3 fftag_groups
+=head2 fftag_groups
 
 Returns the function tag groups.
 
 =cut
     sub fftag_groups { return @FFTAG_GROUPS; }
 
-=pod
-
-=head3 fftag_group
+=head2 fftag_group
 
 Returns the function tag group of its argument.
 
 =cut
     sub fftag_group { return $FFTAG_GROUP{$_[0]}; }
 
-=pod
-
-=head3 fftag_group_members
+=head2 fftag_group_members
 
 Returns the members of the tag group.
 
 =cut
     sub fftag_group_members { return grep { $_[0] eq $FFTAG_GROUP{$_} } fftags; }
 
-=pod
-
-=head3 tag_count
+=head2 tag_count
 
 Returns the number of times that the given fftag or semantic
 role label appears in WSJ sections 2-21.
@@ -447,9 +448,7 @@ role label appears in WSJ sections 2-21.
 =cut
     sub fftag_count { return $TAG_COUNTS{$_[0]}; }
 
-=pod
-
-=head3 tag_or_label_count
+=head2 tag_or_label_count
 
 Returns the count of its argument, which may be either an fftag
 or a propbank label.
@@ -464,6 +463,31 @@ or a propbank label.
     }
 
 }
+
+=head1 AUTHOR
+
+Stu Black, C<< <trurl at freeshell.org> >>
+
+=head1 BUGS
+
+E-mail me. If it's after 2010, there is a very high chance I'm
+not using or maintaining this anymore.
+
+=head1 SUPPORT
+
+Ask around your friendly CS department.
+
+=head1 COPYRIGHT & LICENSE
+
+Copyright 2009 Stu Black.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+
+=cut
 
 1;
 
