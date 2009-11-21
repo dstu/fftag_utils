@@ -51,9 +51,7 @@
         return $t->{_data};
     }
 
-=pod
-
-=head3 visit
+=head2 visit
 
 Runs the provided subref with the parameter of this tree node,
 then recursively calls visit with the same parameter on each of
@@ -68,25 +66,24 @@ its children.
         }
     }
 
-=pod
-
-=head3 tree
+=head2 tree
 
 =over
 
 =item Line: the line to build the tree from
 
-=item FFSeparator: the fftag separator regex.
+=item TagSeparators: an arrayref of valid tag separators.
 
-=item Nonterminals: the nonterminals to allow in the tree
-(default standard Penn treebank set).
+=item Nonterminals: an arrayref of the nonterminals to allow in
+the tree (default standard Penn treebank set).
 
-=item FFTags: the form-function tags to allow in the tree
-(default standard Penn treebank set).
+=item Tags: an arrayref of the tags to allow in the tree
+(default standard Penn Treebank form-function tag set).
 
 =item NodeReader: a subref that takes a string and returns a
 TreebankUtil::Node built from it. (Specify this instead of
-separator, nonterminals, and tags, if you want.)
+C<Separators>, C<Nonterminals>, and C<Tags>, if you want. See
+L<TreebankUtil::Node/node_reader>.)
 
 =back
 
@@ -102,10 +99,8 @@ separator, nonterminals, and tags, if you want.)
         if ($args{NodeReader}) {
             $reader = $args{NodeReader};
         } else {
-            my $nonterminals = $args{Nonterminals} || [ nonterminals] ;
-            my $fftags = $args{FFTags} || [ fftags ];
-            my $ff_separator = $args{FFSeparator} || ['-'];
-            $reader = node_reader($nonterminals, $fftags, $ff_separator);
+            $reader = node_reader(\%args);
+            $args{NodeReader} = $reader;
         }
 
         my $expect_nonterminal = 1;
@@ -116,26 +111,23 @@ separator, nonterminals, and tags, if you want.)
             if ('(' eq $ss) {
                 $i++;
                 my $child;
-                ($child, $i) = tree({ Line         => $line,
-                                      NodeReader   => $reader,
-                                      _start       => $i, });
+                $args{_start} = $i;
+                ($child, $i) = tree(\%args);
                 $head->append_child($child);
             } elsif (')' eq $ss) {
                 $i++;
                 return ($head, $i);
-            } elsif ($ss eq ' ') {# =~ m/[\s]/) {
+            } elsif ($ss eq ' ') {
                 $i++;
             } else {
                 my $l = 1;
                 my $char = substr($line, $i + $l, 1);
-                while ($char ne ' ' && $char ne ')') {#substr($line, $i, $l) !~ m/[\s\)]/) {
+                while ($char ne ' ' && $char ne ')') {
                     $l++;
                     $char = substr($line, $i + $l, 1);
                 }
-                # $l--;
 
                 if ($expect_nonterminal) {
-                    # print "nonterminal from xx" . substr($line, $i, $l) . "xx\n";
                     $head->data($reader->(substr($line, $i, $l)));
                     $expect_nonterminal = 0;
                 } else {

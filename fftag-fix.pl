@@ -94,8 +94,6 @@ my @elements;
 my @tags;
 my $tag;
 while (<$in_fh>) {
-    chomp;
-
     my $head = tree({ Line        => $_,
                       FFSeparator => 'xx|-', });
     if ($strip) {

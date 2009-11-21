@@ -13,7 +13,11 @@ use TreebankUtil qw/nonterminals
                     fftag_groups
                     fftags
                     is_fftag
-                    fftag_group_members/;
+                    fftag_group_members
+                    propbank_labels
+                    is_propbank_label
+                    propbank_label_groups
+                    propbank_label_group_members/;
 
 my $name = basename $0;
 my $usage = <<"EOF";
@@ -31,18 +35,19 @@ form-function tags.
 
 Options:
 
- -a,--all   Print all tag information instead of just summaries
+ -a,--all       Print all tag information instead of just summaries
+ -p,--propbank  Use propbank labels instead of form-function tags
  -s,--scoring   Use partial scoring file
 
 EOF
 
-my ($print_all, $print_mistakes);
+my ($print_all, $use_propbank);
 my ($scoring_fn, $scoring_fh, $scoring_table);
 
-GetOptions( "all"  => \$print_all,
-            "help" => sub { print $usage; exit 0 },
-            "scoring=s" => \$scoring_fn,
-            )
+GetOptions( "all"       => \$print_all,
+            "propbank"  => \$use_propbank,
+            "help"      => sub { print $usage; exit 0 },
+            "scoring=s" => \$scoring_fn, )
     or die "$usage\n";
 
 sub sets_equal {
@@ -112,68 +117,25 @@ sub compare_spans {
     while (my ($gold_span, $gold_tags) = each %gold_with_tags) {
         next
             unless $test_with_tags{$gold_span};
-        # warn "common span: $gold_span";
         for (keys %$gold_tags) {
             $scores{$_}->{gold}++;
-            # warn "gold span has tag $_...";
             if ($test_with_tags{$gold_span}->{$_}) {
-                # warn "test span has tag $_!";
                 if ($scoring_table) {
                     $gold_span =~ m{\((\w+) };
-#                    die "test and gold have span $gold_span with tag $_";
                     $scores{$_}->{correct}
                         += $scoring_table->{$1}->{$_};
                 } else {
                     $scores{$_}->{correct}++;
                 }
-            } # else {
-                # warn "test span lacks tag $_";
-            # }
+            }
         }
         for (keys %{$test_with_tags{$gold_span}}) {
             $scores{$_}->{test_guesses}++;
         }
     }
-    # for my $g (@gold_spans) {
-    #     $g_n = $g->[0];
-    #     for my $t (@test_spans) {
-    #         $t_n = $t->[0];
-    #         if ($g_n->head eq $t_n->head
-    #             && $g->[1] == $t->[1]
-    #             && $g->[2] == $t->[2]) {
-    #             for  ($g_n->tags) {
-    #                 $scores{$_}->{gold}++;
-    #                 if ($t_n->has_tag($_)) {
-    #                     $scores{$_}->{correct}++;
-    #                 } else {
-    #                     push @incorrect_absent, [$g, $t];
-    #                 }
-    #             }
-    #             for ($t_n->tags) {
-    #                 $scores{$_}->{test_guesses}++;
-    #             }
-    #         }
-    #     }
-    # }
-    #
-    # if ($print_mistakes) {
-    #     for (@incorrect_absent) {
-    #         print "tag mismatch:\n\tgold span: ", span2string($_->[0]), "\n\ttest span: ",span2string( $_->[1]), "\n";
-    #         print "\tgold line: $gold_line\n\ttest line: $test_line\n";
-    #     }
-    # }
 
     return %scores;
 }
-
-# sub span2string {
-#     my $span = shift;
-#     return
-#         sprintf '(%s, %d, %d)',
-#             join('-', $span->[0]->head, $span->[0]->tags),
-#             $span->[1],
-#             $span->[2];
-# }
 
 sub compute_stats {
     my %scores = %{$_[0]};
@@ -250,7 +212,9 @@ for (fftags, fftag_groups) {
 }
 
 my ($gold_line, $test_line);
-my $reader = node_reader([nonterminals], [fftags], ['xx', '-']);
+my $reader = node_reader({ Tags       => [$use_propbank ?
+                                              propbank_labels : fftags],
+                           Separators => ['xx', '-'], });
 while (!eof($gold_fh) && !eof($test_fh)) {
     $gold_line = <$gold_fh>;
     chomp $gold_line;
@@ -271,14 +235,17 @@ unless (eof($gold_fh) && eof($test_fh)) {
 
 %scores = compute_stats(\%scores);
 
-print "Group or tag\tPrecision\tRecall\tFMeasure\n";
-for my $group (fftag_groups, "TOTAL") {
+my @groups = $use_propbank ? propbank_label_groups : fftag_groups;
+my $group_members = $use_propbank ? \&propbank_group_members : \&fftag_group_members;
+
+print "Group or tag\tPrec\tRecall\tFMeasure\n";
+for my $group (@groups, "TOTAL") {
     printf STDOUT "$group\t%.2f\t%.2f\t%.2f\n",
         $scores{$group}->{precision},
         $scores{$group}->{recall},
         $scores{$group}->{fmeasure};
     if ($print_all) {
-        for my $tag (sort { $a cmp $b } fftag_group_members($group)) {
+        for my $tag (sort { $a cmp $b } $group_members->($group)) {
             printf STDOUT "$tag\t%.2f\t%.2f\t%.2f\n",
                 $scores{$tag}->{precision},
                 $scores{$tag}->{recall},

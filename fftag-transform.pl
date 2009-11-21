@@ -35,10 +35,10 @@ If infile not specified, reads from standard in. Writes to
 standard out.
 
 Options:
- --scheme, -s:   select scheme number from above
- --propbank, -p: use propbank labels instead of fftags
- --output-join:  string to join fftags with in output
-                 (default '-')
+ -s,--scheme    select scheme number from above
+ -p,--propbank  use propbank labels instead of fftags
+ --output-join  string to join fftags with in output
+                (Default '-')
 
 EOF
 
@@ -162,7 +162,7 @@ GetOptions( "scheme=s"      => \$scheme,
             "help"          => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
-unless ($SCHEMES{$scheme}) {
+unless ($scheme && $SCHEMES{$scheme}) {
     die "Invalid scheme. Must choose one of: (" . join(' ', sort keys(%SCHEMES)) . ")\n";
 }
 
@@ -199,17 +199,18 @@ if ($in_fn) {
 my $reader;
 my $separators = ['xx', '-'];
 if ($scheme eq '4') {
-    $reader = node_reader([nonterminals], \@base_fftags, $separators);
+    $reader = node_reader({ Tags       => \@base_fftags,
+                            Separators => $separators, });
 } elsif ($scheme eq '4_undo') {
-    $reader = node_reader([nonterminals, @mod_fftags], $separators);
+    $reader = node_reader({ Tags       => \@mod_fftags,
+                            Separators => $separators, });
 } else {
-    $reader = node_reader([nonterminals], \@base_fftags, $separators);
+    $reader = node_reader({ Tags       => \@base_fftags,
+                            Separators => $separators, });
 }
 
 while (<$in_fh>) {
-    chomp;
-
-    my $tree = tree({NodeReader => $reader, Line => $_ });
+    my $tree = tree({ NodeReader => $reader, Line => $_, });
     $tree = transform_tree($tree, $SCHEMES{$scheme});
     print $tree->stringify($out_joiner) . "\n";
 }
