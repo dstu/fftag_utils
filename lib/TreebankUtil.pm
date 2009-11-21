@@ -8,7 +8,8 @@
                         fftag_count
                         propbank_labels is_propbank_label propbank_label_regex
                         propbank_label_groups propbank_label_group propbank_label_group_members
-                        propbank_label_count);
+                        propbank_label_count
+                        tag_or_label_count);
 
     # FIXME: TAGS, TOP, ROOT, and XXX may not be valid Penn
     # Treebank nonterminals, but they're useful, so I stuck them
@@ -444,6 +445,22 @@ role label appears in WSJ sections 2-21.
 
 =cut
     sub fftag_count { return $TAG_COUNTS{$_[0]}; }
+
+=pod
+
+=head3 tag_or_label_count
+
+Returns the count of its argument, which may be either an fftag
+or a propbank label.
+
+=cut
+    sub tag_or_label_count {
+        if ($use_propbank) {
+            return propbank_label_count($_[0]);
+        } else {
+            return fftag_count($_[0]);
+        }
+    }
 
 }
 

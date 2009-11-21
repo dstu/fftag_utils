@@ -6,8 +6,9 @@ use warnings;
 use Carp;
 
 use TreebankUtil qw/nonterminals
-                    fftags is_fftag fftag_count
-                    propbank_labels is_propbank_label propbank_label_count/;
+                    fftags is_fftag
+                    propbank_labels is_propbank_label
+                    tag_or_label_count/;
 
 use TreebankUtil::Node qw/node_reader/;
 use TreebankUtil::Tree qw/tree/;
@@ -45,14 +46,6 @@ my ($scheme, $use_propbank);
 my $out_joiner = '-';
 my @base_fftags = fftags;
 my @mod_fftags;
-
-sub tag_or_label_count {
-    if ($use_propbank) {
-        return propbank_label_count($_[0]);
-    } else {
-        return fftag_count($_[0]);
-    }
-}
 
 sub matches_one {
     my $w = shift;
