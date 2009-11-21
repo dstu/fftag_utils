@@ -6,7 +6,8 @@
     use warnings;
     use Exporter qw/import/;
     our @EXPORT_OK = qw/tree/;
-    use TreebankUtil::Node;
+    use TreebankUtil::Node qw/node_reader/;
+    use TreebankUtil qw/nonterminals fftags/;
 
     sub new {
         my $t = shift;
@@ -78,8 +79,14 @@ its children.
 =item FFSeparator: the fftag separator regex.
 
 =item Nonterminals: the nonterminals to allow in the tree
+(default standard Penn treebank set).
 
 =item FFTags: the form-function tags to allow in the tree
+(default standard Penn treebank set).
+
+=item NodeReader: a subref that takes a string and returns a
+TreebankUtil::Node built from it. (Specify this instead of
+separator, nonterminals, and tags, if you want.)
 
 =back
 
@@ -87,16 +94,19 @@ its children.
     sub tree {
         my %args = %{shift()};
         my $line = $args{Line};
-        my $ff_separator = '-';
-        if ($args{FFSeparator}) {
-            $ff_separator = $args{FFSeparator};
-        }
         my $i = 0;
         if ($args{_start}) {
             $i = $args{_start};
         }
-        my $nonterminals = $args{Nonterminals};
-        my $fftags = $args{FFTags};
+        my $reader;
+        if ($args{NodeReader}) {
+            $reader = $args{NodeReader};
+        } else {
+            my $nonterminals = $args{Nonterminals} || [ nonterminals] ;
+            my $fftags = $args{FFTags} || [ fftags ];
+            my $ff_separator = $args{FFSeparator} || ['-'];
+            $reader = node_reader($nonterminals, $fftags, $ff_separator);
+        }
 
         my $expect_nonterminal = 1;
         my $head = TreebankUtil::Tree->new;
@@ -107,28 +117,26 @@ its children.
                 $i++;
                 my $child;
                 ($child, $i) = tree({ Line         => $line,
-                                      FFSeparator  => $ff_separator,
-                                      Nonterminals => $nonterminals,
-                                      FFTags       => $fftags,
+                                      NodeReader   => $reader,
                                       _start       => $i, });
                 $head->append_child($child);
             } elsif (')' eq $ss) {
                 $i++;
                 return ($head, $i);
-            } elsif ($ss =~ m/[\s]/) {
+            } elsif ($ss eq ' ') {# =~ m/[\s]/) {
                 $i++;
             } else {
                 my $l = 1;
-                while (substr($line, $i, $l) !~ m/[\s\)]/) {
+                my $char = substr($line, $i + $l, 1);
+                while ($char ne ' ' && $char ne ')') {#substr($line, $i, $l) !~ m/[\s\)]/) {
                     $l++;
+                    $char = substr($line, $i + $l, 1);
                 }
-                $l--;
+                # $l--;
 
                 if ($expect_nonterminal) {
-                    $head->data(TreebankUtil::Node->new({ TagString    => substr($line, $i, $l),
-                                                          Nonterminals => $nonterminals,
-                                                          FFTags       => $fftags,
-                                                          FFSeparator  => $ff_separator, }));
+                    # print "nonterminal from xx" . substr($line, $i, $l) . "xx\n";
+                    $head->data($reader->(substr($line, $i, $l)));
                     $expect_nonterminal = 0;
                 } else {
                     $head->append_child(substr($line, $i, $l));
@@ -139,9 +147,6 @@ its children.
         }
 
         if (!$head->data) {
-            # warn "bad data node: $line @ $i = " . substr($line, $i) . " (total length: " . length($line) . ")\n";
-            # warn "children: " . ($head->children)[0]->data->head;
-            # warn Dumper($head);
             $head = ($head->children)[0];
         }
         return wantarray ? ($head, $i) : $head;
@@ -149,7 +154,7 @@ its children.
 
     sub stringify {
         my TreebankUtil::Tree $tree = shift;
-        my $tag_joiner = shift;
+        my $tag_joiner = shift || '-';
 
         if (ref $tree) {
             my $h;

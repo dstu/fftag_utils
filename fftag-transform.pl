@@ -9,7 +9,7 @@ use TreebankUtil qw/nonterminals
                     fftags is_fftag fftag_count
                     propbank_labels is_propbank_label propbank_label_count/;
 
-use TreebankUtil::Node;
+use TreebankUtil::Node qw/node_reader/;
 use TreebankUtil::Tree qw/tree/;
 
 use Getopt::Long;
@@ -203,22 +203,20 @@ if ($in_fn) {
     $in_fh = \*STDIN;
 }
 
+my $reader;
+my $separators = ['xx', '-'];
+if ($scheme eq '4') {
+    $reader = node_reader([nonterminals], \@base_fftags, $separators);
+} elsif ($scheme eq '4_undo') {
+    $reader = node_reader([nonterminals, @mod_fftags], $separators);
+} else {
+    $reader = node_reader([nonterminals], \@base_fftags, $separators);
+}
+
 while (<$in_fh>) {
     chomp;
 
-    my $tree;
-    if ($scheme eq '4') {
-        $tree = tree({ FFTags => \@base_fftags,
-                       Line => $_,
-                       FFSeparator => 'xx|-', });
-    } elsif ($scheme eq '4_undo') {
-        $tree = tree({ Nonterminals => [nonterminals, @mod_fftags],
-                       Line => $_,
-                       FFSeparator => 'xx|-', });
-    } else {
-        $tree = tree({ Line => $_,
-                       FFSeparator => 'xx|-', });
-    }
+    my $tree = tree({NodeReader => $reader, Line => $_ });
     $tree = transform_tree($tree, $SCHEMES{$scheme});
     print $tree->stringify($out_joiner) . "\n";
 }

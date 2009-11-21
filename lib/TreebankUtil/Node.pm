@@ -7,7 +7,7 @@
     use fields qw(_head _fftags);
 
     use Exporter qw/import/;
-    our @EXPORT_OK = qw/spans/;
+    our @EXPORT_OK = qw/spans node_reader/;
     use Carp qw/cluck/;
     use TreebankUtil qw(nonterminals fftags);
 
@@ -57,8 +57,8 @@ Argument is a hashref. Keys are:
                 $fftags = [ fftags ];
             }
             if ($args{TagString}) {
-                my ($head, $tags) = _extract_data($args{TagString}, $nonterminals, $fftags, $separator)
-                    or cluck("Can't extract nonterminal and tags; ignoring tag \"$args{TagString}\"");
+                my ($head, $tags) = node_reader($nonterminals, $fftags, $separator)->($args{TagString})
+                    or return $t;
                 $t->set_head($head);
                 $t->set_tags(@$tags);
             }
@@ -67,10 +67,11 @@ Argument is a hashref. Keys are:
         return $t;
     }
 
-    sub _extract_data {
-        my ($s, $nonterminals, $fftags, $separator) = @_;
-        my $nonterminal_match = join('|', map { quotemeta } @$nonterminals);
-        my $tag_match = join('|', map { quotemeta } @$fftags);
+    sub node_reader {
+        my ($nonterminals, $fftags, $separators) = @_;
+        my $nonterminal_match = '(?:' . join('|', map { quotemeta } @$nonterminals) . ')';
+        my $tag_match = '(?:' . join('|', map { quotemeta } @$fftags) . ')';
+        my $separator_match = '(?:' . join('|', map { quotemeta } @$separators) . ')';
 
         my $head;
         my @tags;
@@ -79,18 +80,32 @@ Argument is a hashref. Keys are:
             use re 'eval';
             $TAG_REGEX
                 = qr{
-                        ^($nonterminal_match)         # Find head
-                        (?{ $head = $^N })            # Remember it
-                        (?:(?:$separator)             # Separator (begin optional)
-                            ($tag_match)              # Tag
-                            (?{ push @tags, $^N }))*  # Remember it (end optional)
-                        (?:=\d+)?$                    # End expression with possible trace
+                        ^($nonterminal_match)  # Find head
+                        (?{ $head = $^N })
+                        (?:$separator_match    # Tag(s) separated by head
+                            ($tag_match)
+                            (?{ push @tags, $^N }))*
+                        (?:=\d+)?$             # End expression with possible trace
                 }x;
         }
-        if ($s =~ $TAG_REGEX) {
-            return ($head, \@tags);
-        } else {
-            return;
+        croak("Can't build regex")
+            unless $TAG_REGEX;
+
+        return sub {
+            my $s = shift;
+            undef $head;
+            @tags = ();
+            if ($s =~ m{$TAG_REGEX}x) {
+                my $n = TreebankUtil::Node->new;
+                # print "$s\n";
+                # print "head=$head\ntags=", join(' ', @tags), "\n";
+                $n->set_head($head);
+                $n->set_tags(@tags);
+                return $n;
+            } else {
+                cluck("Can't extract nonterminal and tags; ignoring node \"$s\"");
+                return;
+            }
         }
     }
 
@@ -162,7 +177,8 @@ Args should be a hashref. Valid keys are:
 
 =item Line: the line to get the spans for.
 
-=item FFSeparator: the fftag separator regex. Default "-".
+=item NodeReader: a function that takes a string and returns a
+node.
 
 =back
 
@@ -170,10 +186,7 @@ Args should be a hashref. Valid keys are:
     sub spans {
         my %args = %{shift()};
         my $line = $args{Line};
-        my $ff_separator = '-';
-        if ($args{FFSeparator}) {
-            $ff_separator = $args{FFSeparator};
-        }
+        my $reader = $args{NodeReader};
         my @spans;
         my @open_spans;
         my $i = 0;
@@ -191,8 +204,7 @@ Args should be a hashref. Valid keys are:
                 $expect_nonterminal = 0;
             } else {
                 if ($expect_nonterminal) {
-                    my $n = TreebankUtil::Node->new({ TagString   => $1,
-                                                      FFSeparator => $ff_separator, });
+                    my $n = $reader->($1);
                     push @open_spans, [$n, $i];
                     $expect_nonterminal = 0;
                 } else {

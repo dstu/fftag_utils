@@ -8,11 +8,12 @@ use File::Basename;
 use List::MoreUtils qw/uniq/;
 use List::Util qw/sum/;
 
-use TreebankUtil::Node qw/spans/;
-use TreebankUtil qw/fftag_groups
+use TreebankUtil::Node qw/spans node_reader/;
+use TreebankUtil qw/nonterminals
+                    fftag_groups
                     fftags
+                    is_fftag
                     fftag_group_members/;
-use TreebankUtil::Node;
 
 my $name = basename $0;
 my $usage = <<"EOF";
@@ -31,14 +32,16 @@ form-function tags.
 Options:
 
  -a,--all   Print all tag information instead of just summaries
+ -s,--scoring   Use partial scoring file
 
 EOF
 
 my ($print_all, $print_mistakes);
+my ($scoring_fn, $scoring_fh, $scoring_table);
 
 GetOptions( "all"  => \$print_all,
             "help" => sub { print $usage; exit 0 },
-#            "print-mistakes" => \$print_mistakes,
+            "scoring=s" => \$scoring_fn,
             )
     or die "$usage\n";
 
@@ -54,14 +57,30 @@ sub sets_equal {
     return scalar(keys(%s1)) == 0 && scalar(keys(%s2)) == 0;
 }
 
+sub load_scoring_table {
+    my $fh = shift;
+    my %table = map { $_ => {} } nonterminals;
+    while (<$fh>) {
+        my ($nonterminal, $tag, $prob) = split;
+        $nonterminal =~ m{([^_]+)};
+        $nonterminal = $1;
+        if (is_fftag($tag)) {
+            my $existing = 
+                $table{$nonterminal}->{$tag} || 0;
+            if ($prob > $existing) {
+                $table{$nonterminal}->{$tag} = $prob;
+            }
+        }
+    }
+    return \%table;
+}
+
 sub compare_spans {
     my @gold_spans = @{$_[0]};
     my $gold_line = $_[1];
     my @test_spans = @{$_[2]};
     my $test_line = $_[3];
     my %scores = %{$_[4]};
-    # my TreebankUtil::Node $g_n;
-    # my TreebankUtil::Node $t_n;
 
     my %gold_with_tags;
     my %test_with_tags;
@@ -99,7 +118,14 @@ sub compare_spans {
             # warn "gold span has tag $_...";
             if ($test_with_tags{$gold_span}->{$_}) {
                 # warn "test span has tag $_!";
-                $scores{$_}->{correct}++;
+                if ($scoring_table) {
+                    $gold_span =~ m{\((\w+) };
+#                    die "test and gold have span $gold_span with tag $_";
+                    $scores{$_}->{correct}
+                        += $scoring_table->{$1}->{$_};
+                } else {
+                    $scores{$_}->{correct}++;
+                }
             } # else {
                 # warn "test span lacks tag $_";
             # }
@@ -191,6 +217,13 @@ sub compute_stats {
     return %scores;
 }
 
+if ($scoring_fn) {
+    open $scoring_fh, '<', $scoring_fn
+        or die "Can't open scoring file \"$scoring_fn\"\n";
+    $scoring_table = load_scoring_table($scoring_fh);
+    close $scoring_fh;
+}
+
 my $gold_fn = shift;
 if (!$gold_fn) {
     die "$usage\n";
@@ -217,16 +250,17 @@ for (fftags, fftag_groups) {
 }
 
 my ($gold_line, $test_line);
+my $reader = node_reader([nonterminals], [fftags], ['xx', '-']);
 while (!eof($gold_fh) && !eof($test_fh)) {
     $gold_line = <$gold_fh>;
     chomp $gold_line;
     $test_line = <$test_fh>;
     chomp $test_line;
     %scores = compare_spans([spans({ Line        => $gold_line,
-                                    FFSeparator => 'xx|-', })],
+                                     NodeReader  => $reader, })],
                             $gold_line,
                             [spans({ Line        => $test_line,
-                                    FFSeparator => 'xx|-', })],
+                                     NodeReader  => $reader, })],
                             $test_line,
                             \%scores);
 }
