@@ -131,6 +131,7 @@ Returns a regular expression that will match a nonterminal tag.
                               AM:EXT
                               AM:PNC
                               AM:DIR
+                              AM:PRD
                               R:A0
                               R:A1
                               R:A2
