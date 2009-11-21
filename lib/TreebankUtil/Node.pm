@@ -160,12 +160,6 @@ again is wasteful.
         }
     }
 
-    # sub set_head {
-    #     my TreebankUtil::Node $t = shift;
-    #     $t->{_head} = shift;
-    #     return $t;
-    # }
-
     sub head {
         my TreebankUtil::Node $t = shift;
         if (@_) {
@@ -173,12 +167,6 @@ again is wasteful.
         }
         return $t->{_head};
     }
-
-    # sub set_tags {
-    #     my TreebankUtil::Node $t = shift;
-    #     $t->{_tags} = {map { $_ => 1 } @_};
-    #     return $t;
-    # }
 
     sub tags {
         my TreebankUtil::Node $t = shift;
