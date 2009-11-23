@@ -3,8 +3,9 @@
 use strict;
 use warnings;
 
-use TreebankUtil qw/tag_or_label_count/;
+use TreebankUtil qw/tag_or_label_count propbank_labels fftags/;
 use TreebankUtil::Tree qw/tree/;
+use TreebankUtil::Node qw/node_reader/;
 
 use Data::Dumper;
 
@@ -29,13 +30,14 @@ standard out.
 Options:
  --joiner, -j    specify string to join annotations with
                  for output (default "-")
- --keep, -k      specify only tags to keep (-k tag1 tag2 ...)
- --strip, -s     strip tags
- --replace, -r   replace all tags with SBJ
- --one-tag, -o   reduce all occurrences of multiple tags to just
+ -k,--keep       specify only tags to keep (-k tag1 tag2 ...)
+ -s,--strip      strip tags
+ -r,--replace    replace all tags with SBJ
+ -o,--one-tag    reduce all occurrences of multiple tags to just
                  the most frequent one in the set
  --unary-test    replaces ff tags with unary chains
                  (this is for a baseline test)
+ -p,--propbank   use propbank labels
 
 Special option:
  --exec, -e      code block to run for each tree, with \$_
@@ -46,6 +48,7 @@ Special option:
 EOF
 
 my $joiner = "-";
+my $use_propbank;
 my $exec;
 my $onetag;
 my $unary_test;
@@ -60,6 +63,7 @@ GetOptions( "joiner=s"   => \$joiner,
             "one-tag"    => \$onetag,
             "exec=s"     => \$exec,
             "unary-test" => \$unary_test,
+            "propbank"   => \$use_propbank,
             "help"       => sub { print $usage; exit 0 },)
     or die "$usage\n";
 
@@ -93,9 +97,12 @@ if ($in_fn) {
 my @elements;
 my @tags;
 my $tag;
+my $reader = node_reader({ Tags => [ $use_propbank ?
+                                         propbank_labels : fftags ],
+                           Separators => [ '-', 'xx' ] });
 while (<$in_fh>) {
     my $head = tree({ Line        => $_,
-                      FFSeparator => 'xx|-', });
+                      NodeReader => $reader, });
     if ($strip) {
         $head->visit( sub {
                           if (ref $_[0] && $_[0]->data) {
