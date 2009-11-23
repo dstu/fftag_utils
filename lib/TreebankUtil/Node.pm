@@ -261,6 +261,21 @@ node, as returned by L</node_reader>.
         return wantarray ? @spans : \@spans;
     }
 
+=head2 stringify
+
+C<< print $my_node->stringify("xx"), "\n" >>
+
+Returns a string representing the node. If a parameter is
+specified, it is used to join the tag(s) of the node. Default is
+to use "-".
+
+=cut
+    sub stringify {
+        my TreebankUtil::Node $t = shift;
+        my $joiner = shift || '-';
+        return join($joiner, $t->head, $t->tags);
+    }
+
 =head1 AUTHOR
 
 Stu Black, C<< <trurl at freeshell.org> >>
