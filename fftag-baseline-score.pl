@@ -82,9 +82,9 @@ for my $gold_fn (@ARGV) {
                     $totals{$nonterminal}->{$tag} = 1;
                 }
                 if ($node_counts{$nonterminal}->{$tag}) {
-                    $node_counts{$nonterminal}->{$tag} += $scoring_table->{$nonterminal}->{$tag} || 0;
+                    $node_counts{$nonterminal}->{$tag} += $scoring_table->{$nonterminal}->{$tag} ? $scoring_table->{$nonterminal}->{$tag} : 0;
                 } else {
-                    $node_counts{$nonterminal}->{$tag} =  $scoring_table->{$nonterminal}->{$tag} || 0;
+                    $node_counts{$nonterminal}->{$tag} = $scoring_table->{$nonterminal}->{$tag} ? $scoring_table->{$nonterminal}->{$tag} : 0;
                 }
             }
         }
@@ -99,8 +99,8 @@ for my $nonterminal (sort keys %totals) {
     for my $tag (sort { $totals{$nonterminal}->{$b} <=> $totals{$nonterminal}->{$a} } keys %{$totals{$nonterminal}}) {
         $all_total += $totals{$nonterminal}->{$tag};
         $all_count += $node_counts{$nonterminal}->{$tag};
-        printf STDOUT "%s\t%s\t%.02f\n",
+        printf STDOUT "%s\t%s\t%f\n",
             $nonterminal, $tag, $node_counts{$nonterminal}->{$tag} / $totals{$nonterminal}->{$tag};
     }
 }
-printf STDOUT "TOTAL\t\t%.02f\n", $all_count / $all_total;
+printf STDOUT "TOTAL\t\t%f\n", $all_count / $all_total;
