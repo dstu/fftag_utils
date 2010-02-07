@@ -16,9 +16,10 @@ my $name = basename $0;
 my $usage = <<"EOF";
 $name: query treebank form-function tag statistics
 
-Usage: $name [options]
+Usage: $name [options] [files]
 
-Trees are read in s-list format from standard in.
+Trees are read in s-list format from files on command line, or
+standard in if no files are specified.
 
 Output is printed to standard out.
 
@@ -40,18 +41,35 @@ my %scores = map { $_ => { map { $_ => 0 } (@fftags, "NONE") } } nonterminals;
 
 my $reader = node_reader({ Tags => \@fftags,
                            Separators => ['xx', '-'], });
-while (<STDIN>) {
-    my $spans = spans({ Line => $_, NodeReader => $reader, });
-    for my $head (map { $_->[0] } @$spans) {
-        my @tags = $head->tags;
-        if (@tags) {
-            for my $tag (@tags) {
-                $scores{$head->head}->{$tag}++;
+
+sub read_trees {
+    my $fh = shift;
+    while (<$fh>) {
+        my $spans = spans({ Line => $_, NodeReader => $reader, });
+        for my $head (map { $_->[0] } @$spans) {
+            my @tags = $head->tags;
+            if (@tags) {
+                for my $tag (@tags) {
+                    $scores{$head->head}->{$tag}++;
+                }
+            } elsif ($count_nulls) {
+                $scores{$head->head}->{NONE}++;
             }
-        } elsif ($count_nulls) {
-            $scores{$head->head}->{NONE}++;
         }
     }
+}
+
+if (@ARGV) {
+    for my $fn (@ARGV) {
+        my $fh;
+        open $fh, '<', $fn
+            or die "Can't open file $fn: $!\n";
+        read_trees($fh);
+        close $fh
+            or die "Can't close file $fn: $!\n";
+    }
+} else {
+    read_trees(\*STDIN);
 }
 
 for my $nonterminal (sort(nonterminals())) {
