@@ -43,11 +43,11 @@ GetOptions( "propbank"  => \$use_propbank,
 
 my @fftags;
 if ($use_propbank) {
-    @fftags = sort propbank_labels;
+    @fftags = sort { $a cmp $b } propbank_labels;
 } elsif ($use_substate) {
     @fftags = (0..64);
 } else {
-    @fftags = sort fftags;
+    @fftags = sort { $a cmp $b } fftags;
 }
 
 my @nonterminals = nonterminals;
@@ -56,7 +56,7 @@ if ($allow_binarized) {
     @nonterminals = (@nonterminals, map { "\@$_" } @nonterminals);
 }
 
-@nonterminals = sort @nonterminals;
+@nonterminals = sort {$a cmp $b } @nonterminals;
 
 my %scores = map { $_ => { map { $_ => 0 } (@fftags, "NONE") } } @nonterminals;
 
@@ -97,10 +97,8 @@ if (@ARGV) {
 print "TAG\t";
 if ($use_substate) {
     print "SUBSTATE\t";
-} elsif ($use_propbank) {
-    print "PROPBANK\t";
 } else {
-    print "FFTAG\t";
+    print "LABEL\t";
 }
 if ($print_counts) {
     print "COUNT\n";
