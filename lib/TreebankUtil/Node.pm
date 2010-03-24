@@ -119,7 +119,7 @@ again is wasteful.
         my %args = %{$_[0]};
         my $nonterminals = $args{Nonterminals} || [nonterminals];
         my $fftags = $args{Tags} || [fftags];
-        my $separators = $args{separators} || ['-'];
+        my $separators = $args{Separators} || ['-'];
 
         my $nonterminal_match = '(?:' . join('|', map { quotemeta } @$nonterminals) . ')';
         my $tag_match = '(?:' . join('|', map { quotemeta } @$fftags) . ')';
