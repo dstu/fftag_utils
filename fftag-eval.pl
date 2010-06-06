@@ -35,32 +35,24 @@ form-function tags.
 
 Options:
 
- -a,--all       Print all tag information instead of just summaries
- -p,--propbank  Use propbank labels instead of form-function tags
- -s,--scoring   Use partial scoring file
+ -a,--all          Print all tag information instead of just summaries
+ -p,--propbank     Use propbank labels instead of form-function tags
+ -s,--scoring      Use partial scoring file
+ -n,--num-missing  Print number of non-matching fftag spans
+ -m,--missing      Print missing fftag spans
 
 EOF
 
-my ($print_all, $use_propbank);
+my ($print_all, $use_propbank, $print_num_missing, $print_missing);
 my ($scoring_fn, $scoring_fh, $scoring_table);
 
-GetOptions( "all"       => \$print_all,
-            "propbank"  => \$use_propbank,
-            "help"      => sub { print $usage; exit 0 },
-            "scoring=s" => \$scoring_fn, )
+GetOptions( "all"         => \$print_all,
+            "propbank"    => \$use_propbank,
+            "num-missing" => \$print_num_missing,
+            "missing"     => \$print_missing,
+            "help"        => sub { print $usage; exit 0 },
+            "scoring=s"   => \$scoring_fn, )
     or die "$usage\n";
-
-sub sets_equal {
-    my %s1 = map { $_ => 1 } @{$_[0]};
-    my %s2 = map { $_ => 1 } @{$_[1]};
-    for (keys %s1) {
-        if ($s2{$_}) {
-            delete $s1{$_};
-            delete $s2{$_};
-        }
-    }
-    return scalar(keys(%s1)) == 0 && scalar(keys(%s2)) == 0;
-}
 
 sub load_scoring_table {
     my $fh = shift;
@@ -83,9 +75,13 @@ sub load_scoring_table {
 sub compare_spans {
     my @gold_spans = @{$_[0]};
     my $gold_line = $_[1];
-    my @test_spans = @{$_[2]};
-    my $test_line = $_[3];
-    my %scores = %{$_[4]};
+    my $gold_line_num = $_[2];
+    my @test_spans = @{$_[3]};
+    my $test_line = $_[4];
+    my $test_line_num = $_[5];
+    my %scores = %{$_[6]};
+    my @present_only_in_gold_spans;
+    my @present_only_in_test_spans;
 
     my %gold_with_tags;
     my %test_with_tags;
@@ -114,27 +110,36 @@ sub compare_spans {
         }
     }
 
-    while (my ($gold_span, $gold_tags) = each %gold_with_tags) {
-        next
-            unless $test_with_tags{$gold_span};
-        for (keys %$gold_tags) {
-            $scores{$_}->{gold}++;
-            if ($test_with_tags{$gold_span}->{$_}) {
-                if ($scoring_table) {
-                    $gold_span =~ m{\((\w+) };
-                    $scores{$_}->{correct}
-                        += $scoring_table->{$1}->{$_};
-                } else {
-                    $scores{$_}->{correct}++;
-                }
-            }
-        }
-        for (keys %{$test_with_tags{$gold_span}}) {
-            $scores{$_}->{test_guesses}++;
+    while (my ($test_span, $test_tags) = each %test_with_tags) {
+        if ($gold_with_tags{$test_span}) {
+        } else {
+            push @present_only_in_test_spans, [$test_span, $test_tags, $test_line_num];
         }
     }
 
-    return %scores;
+    while (my ($gold_span, $gold_tags) = each %gold_with_tags) {
+        if ($test_with_tags{$gold_span}) {
+            for (keys %$gold_tags) {
+                $scores{$_}->{gold}++;
+                if ($test_with_tags{$gold_span}->{$_}) {
+                    if ($scoring_table) {
+                        $gold_span =~ m{\((\w+) };
+                        $scores{$_}->{correct}
+                            += $scoring_table->{$1}->{$_};
+                    } else {
+                        $scores{$_}->{correct}++;
+                    }
+                }
+            }
+            for (keys %{$test_with_tags{$gold_span}}) {
+                $scores{$_}->{test_guesses}++;
+            }
+        } else {
+            push @present_only_in_gold_spans, [$gold_span, $gold_tags, $gold_line_num];
+        }
+    }
+
+    return (\%scores, \@present_only_in_gold_spans, \@present_only_in_test_spans);
 }
 
 sub compute_stats {
@@ -210,25 +215,58 @@ for (fftags, fftag_groups) {
               gold          => 0, };
     $scores{$_} = $v;
 }
+my @present_only_in_gold;
+my @present_only_in_test;
 
 my ($gold_line, $test_line);
 my $reader = node_reader({ Tags       => [$use_propbank ?
                                               propbank_labels : fftags],
                            Separators => ['xx', '-'], });
+my ($num_gold_missing, $num_test_missing) = (0, 0);
+my ($gold_line_num, $test_line_num) = (0, 0);
 while (!eof($gold_fh) && !eof($test_fh)) {
     $gold_line = <$gold_fh>;
     $test_line = <$test_fh>;
-    %scores = compare_spans([spans({ Line        => $gold_line,
-                                     NodeReader  => $reader, })],
-                            $gold_line,
-                            [spans({ Line        => $test_line,
-                                     NodeReader  => $reader, })],
-                            $test_line,
-                            \%scores);
+    $gold_line_num++;
+    $test_line_num++;
+    my $scores;
+    my $line_gold_only;
+    my $line_test_only;
+    ($scores, $line_gold_only, $line_test_only)
+        = compare_spans([spans({ Line        => $gold_line,
+                                 NodeReader  => $reader, })],
+                        $gold_line,
+                        $gold_line_num,
+                        [spans({ Line        => $test_line,
+                                 NodeReader  => $reader, })],
+                        $test_line,
+                        $test_line_num,
+                        \%scores);
+    %scores = %$scores;
+    push @present_only_in_gold, grep { scalar(keys(%{$_->[1]})) > 0 } @$line_gold_only;
+    push @present_only_in_test, grep { scalar(keys(%{$_->[1]})) > 0 } @$line_test_only;
 }
 
 unless (eof($gold_fh) && eof($test_fh)) {
     warn("Line mismatch: " . (eof($gold_fh) ? "gold" : "test") . " shorter.\n");
+}
+
+if ($print_missing) {
+    print "Present only in gold:\n";
+    for my $s (@present_only_in_gold) {
+        my ($span, $tags, $line) = @$s;
+        print "$line: $span ", join("-", keys(%$tags)), "\n";
+    }
+    print "Present only in test:\n";
+    for my $s (@present_only_in_test) {
+        my ($span, $tags, $line) = @$s;
+        print "$line: $span ", join("-", keys(%$tags)), "\n";
+    }
+}
+
+if ($print_num_missing) {
+    print "Present only in gold: ", scalar(@present_only_in_gold), " with tags.\n";
+    print "Present only in test: ", scalar(@present_only_in_test), " with tags.\n";
 }
 
 %scores = compute_stats(\%scores);
