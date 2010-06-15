@@ -69,4 +69,8 @@ sub count {
     return $t->table->{$k};
 }
 
+__PACKAGE__->meta->make_immutable;
+
 1;
+
+__END__

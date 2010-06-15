@@ -55,6 +55,18 @@ my $results = TreebankUtil::TagResults->new( gold_spans => \@gold_spans,
                                              valid_tags => [fftags],
                                              groups     => \%groups, );
 
+my $matched_with_tag = 0;
+my $matched_without_tag = 0;
+for (map { $_->[0] } @{$results->matched_spans}) {
+    if (@{$_->tags}) {
+        $matched_with_tag++;
+    } else {
+        $matched_without_tag++;
+    }
+}
+
+print "Correctly parsed: $matched_with_tag with tag, $matched_without_tag without.\n";
+
 print "TAG\tPREC\tREC\tF1\n";
 for my $g (fftag_groups) {
     printf "\%s\t\%.02f\t\%.02f\t\%.02f\n", $g, $results->precision->count($g) * 100,

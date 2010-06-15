@@ -295,4 +295,8 @@ sub read_trees_file {
     return \@spans;
 }
 
+__PACKAGE__->meta->make_immutable;
+
 1;
+
+__END__
