@@ -35,9 +35,11 @@ Options:
  -r,--replace    replace all tags with SBJ
  -o,--one-tag    reduce all occurrences of multiple tags to just
                  the most frequent one in the set
+ --no-preterminals  strip fftags from preterminals
  --unary-test    replaces ff tags with unary chains
                  (this is for a baseline test)
- -p,--propbank   use propbank labels
+ --propbank      use propbank labels
+
 
 Special option:
  --exec, -e      code block to run for each tree, with \$_
@@ -51,6 +53,7 @@ my $joiner = "-";
 my $use_propbank;
 my $exec;
 my $onetag;
+my $no_preterminals;
 my $unary_test;
 my $strip;
 my $replace;
@@ -62,6 +65,7 @@ GetOptions( "joiner=s"   => \$joiner,
             "keep=s@"    => \@keeptags,
             "one-tag"    => \$onetag,
             "exec=s"     => \$exec,
+	    "no-preterminals" => \$no_preterminals,
             "unary-test" => \$unary_test,
             "propbank"   => \$use_propbank,
             "help"       => sub { print $usage; exit 0 },)
@@ -135,6 +139,14 @@ while (<$in_fh>) {
                               $_[0]->data->tags($t[0]);
                           }
                       } );
+    }
+
+    if ($no_preterminals) {
+	$head->visit( sub {
+			  if (ref $_[0] && $_[0]->is_preterminal && ref $_[0]->data) {
+			      $_[0]->data->clear_tags;
+			  }
+		      } );
     }
 
     if ($exec) {
