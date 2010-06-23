@@ -43,6 +43,15 @@
         return 0 == scalar(@{$t->{_children}});
     }
 
+    sub is_preterminal {
+	my TreebankUtil::Tree $t = shift;
+	my @children = $t->children;
+	if (1 == scalar(@children) && ref $children[0]) {
+	    return $children[0]->is_leaf;
+	}
+	return 0;
+    }
+
     sub data {
         my TreebankUtil::Tree $t = shift;
         if (@_) {

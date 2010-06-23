@@ -32,12 +32,12 @@ replaced by colons.
 
 None by default. Available functions follow.
 
-nonterminals, nonterminal_regex, fftags, is_fftag, fftag_regex,
-fftag_groups, fftag_group, fftag_group_members, fftag_count,
-propbank_labels, is_propbank_label, propbank_label_regex,
-propbank_label_groups, propbank_label_group
-propbank_label_group_members, propbank_label_count,
-tag_or_label_count
+nonterminals, nonterminal_regex, preterminals,
+preterminal_regex, fftags, is_fftag, fftag_regex, fftag_groups,
+fftag_group, fftag_group_members, fftag_count, propbank_labels,
+is_propbank_label, propbank_label_regex, propbank_label_groups,
+propbank_label_group propbank_label_group_members,
+propbank_label_count, tag_or_label_count
 
 =head1 FUNCTIONS
 
