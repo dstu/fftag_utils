@@ -43,7 +43,7 @@ while (<$in_fh>) {
     chomp $in_fh;
     my $tree = tree({ Line       => $_,
 		      NodeReader => $node_reader });
-    $tree = $transformer->transform($tree);
+    $tree = $transformer->transform(Tree => $tree);
     print $out_fh $tree->stringify, "\n";
 }
 

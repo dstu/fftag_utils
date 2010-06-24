@@ -1,9 +1,6 @@
 {
     package TreebankUtil::Transform::PropagateFFTagsToHeadPreterminals;
     use Moose;
-    use Carp;
-    use TreebankUtil::Tree;
-    use TreebankUtil::Node;
     use constant LEFT  => 1;
     use constant RIGHT => -1;
 
@@ -44,7 +41,7 @@
     sub BUILD {
         my $t = shift;
         $t->rules->{NP}
-            = [            # If rightmost item is POS, that's it
+            = [ # If rightmost item is POS, that's it
                 sub {
                     my $tree = shift;
                     my @children = $tree->children;
@@ -89,7 +86,7 @@
                 }
                     ];          # end NP
         $t->rules->{ADJP}
-            = [  # Search left to right for one of NNS QP NN S
+            = [ # Search left to right for one of NNS QP NN S
                 # ADVP JJ VBN VBG ADJP JJR NP JJS DT FW RBR RBS
                 # SBAR RB
                 make_simple_rule(1, qw(NNS QP NN S ADVP JJ VBN VBG ADJP JJR NP JJS DT FW RBR RBS SBAR RB))
@@ -99,7 +96,7 @@
                 make_simple_rule(0, qw(RB RBR RBS FW ADVP TO CD JJR JJ IN NP JJS NN))
                     ];
         $t->rules->{CONJP}
-            = [       # Search right to left for one of CC RB IN
+            = [ # Search right to left for one of CC RB IN
                 make_simple_rule(0, qw(CC RB IN))
                     ];
         $t->rules->{FRAG}
@@ -107,7 +104,7 @@
         $t->rules->{INTJ}
             = [ make_simple_rule(1) ];
         $t->rules->{LST}
-            = [           # Search right to left for one of LS :
+            = [ # Search right to left for one of LS :
                 make_simple_rule(0, qw(LS :))
                     ];
         $t->rules->{NAC}
@@ -121,7 +118,7 @@
         $t->rules->{PRN}
             = [ make_simple_rule(1) ];
         $t->rules->{PRT}
-            = [                 # Search right to left for RP
+            = [ # Search right to left for RP
                 make_simple_rule(0, qw(RP))
                     ];
         $t->rules->{QP}
@@ -167,22 +164,27 @@
                 make_simple_rule(1, qw(WDT WP WP\$ WHADJP WHPP WHNP))
                     ];
         $t->rules->{WHPP}
-            = [       # Search right to left for one of IN TO FW
+            = [ # Search right to left for one of IN TO FW
                 make_simple_rule(0, qw(IN TO FW))
                     ];
     }
 
     sub find_head_preterminals {
         my $t = shift;
-        my $tree = shift;
-        my $preterminal_lookup = shift // {};
+	my %args = @_;
+        my $tree = $args{Tree};
+	my $descend_table = $args{ApplyToAll};
+	$args{Preterminals} //= {};
+        my $preterminal_lookup = $args{Preterminals};
 
         # Build from bottom up
         if (!ref($tree) || $tree->is_preterminal) {
             return $preterminal_lookup;
         } else {
             for ($tree->children) {
-                $preterminal_lookup = $t->find_head_preterminals($_, $preterminal_lookup);
+                $preterminal_lookup = $t->find_head_preterminals(Tree => $_,
+								 ApplyToAll => $args{ApplyToAll},
+								 Preterminals => $preterminal_lookup);
             }
         }
 
@@ -195,12 +197,15 @@
         }
 
         if ($head) {
-            # Descend through table to find preterminal head of
-            # this node
-            while ($preterminal_lookup->{$head}) {
-                $head = $preterminal_lookup->{$head};
-            }
-            $preterminal_lookup->{$tree} = $head;
+	    if ($descend_table) {
+		# Descend through table to find preterminal head of
+		# this node
+		while ($preterminal_lookup->{$head}) {
+		    $head = $preterminal_lookup->{$head};
+		}
+	    }
+	    # Store head in table
+	    $preterminal_lookup->{$tree} = $head;
         }
 
         return $preterminal_lookup;
@@ -208,35 +213,51 @@
 
     sub apply_fftags_to_head_preterminals {
         my $t = shift;
-        my $tree = shift;
-        my $preterminal_lookup = shift;
+	my %args = @_;
+        my $tree = $args{Tree};
+        my $preterminal_lookup = $args{Preterminals} // {};
+	my $apply_to_all = $args{ApplyToAll};
+	my $propagate_tags = $args{Tags};
+
+	my %do_propagate = map { $_ => 1 } @$propagate_tags;
 
         if (!ref($tree) || $tree->is_preterminal) {
             return $tree;
         }
 
         # Push fftags down tree
-        my @tags = $tree->data->tags;
+        my @tags = grep { $do_propagate{$_} } $tree->data->tags;
         if (@tags) {
             my $head = $preterminal_lookup->{$tree};
-            $head->data->tags(@tags)
-                if $head;
+	    if (ref $head && $head->is_preterminal) {
+		$head->data->tags(@tags);
+	    }
         }
         for ($tree->children) {
-            $t->apply_fftags_to_head_preterminals($_, $preterminal_lookup);
+            $t->apply_fftags_to_head_preterminals(Tree => $_,
+						  Preterminals => $preterminal_lookup,
+						  ApplyToAll => $apply_to_all,
+						  Tags => $propagate_tags);
         }
         return $tree;
     }
 
+=head2 transform
+
+C<< transform(Tree => tree to transform (in-place),
+              Tags => tags to propagate,
+              ApplyToAll => true iff apply to all preterminals, not just immediate children) >>
+
+=cut
     sub transform {
         my $t = shift;
-        my $tree = shift;
-        my $preterminals = $t->find_head_preterminals($tree);
-        return $t->apply_fftags_to_head_preterminals($tree, $preterminals);
+	my %args = @_;
+	$args{Tags} //= [qw(DIR LOC MNR PRP TMP)];
+        $args{Preterminals} = $t->find_head_preterminals(%args);
+        return $t->apply_fftags_to_head_preterminals(%args);
     }
 
     __PACKAGE__->meta->make_immutable;
-
 }
 
 1;
